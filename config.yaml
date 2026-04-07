@@ -1,0 +1,22 @@
+lm_api:
+  base_url: http://127.0.0.1:1234/v1
+  api_key: ''
+  model: ''
+chunking:
+  max_context_tokens: 1700
+  overlap_tokens: 0
+  safety_factor: 0.85
+inference:
+  temperature: 0.0
+  top_p: 1.0
+  top_k: 1
+  max_tokens: 5000
+  repeat_penalty: 1.0
+  stop_sequences:
+  - </s>
+runtime:
+  logs_dir: logs
+  debug: true
+  max_retries: 2
+  retry_backoff_seconds: 2.0
+  abort_on_failure: false
