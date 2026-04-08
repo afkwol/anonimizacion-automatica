@@ -6,17 +6,17 @@ Cada PR es atómico, reviewable, y deja la app funcionando. Marcar `[x]` al comp
 
 ---
 
-## PR 0 — Saneamiento del repo y baseline
+## PR 0 — Saneamiento del repo y baseline ✅
 
-- [ ] `.gitignore` definitivo (`.venv/`, `__pycache__/`, `logs/`, `*.pyc`, salidas `_anonimizado.*`, `_comparacion.*`)
-- [ ] Mover `anonimizador v.5.py` → `app/legacy_monolith.py` (preservar como referencia, no se borra todavía)
-- [ ] Crear estructura de paquetes: `app/`, `app/io/`, `app/pipeline/`, `app/detect/`, `app/classify/`, `app/replace/`, `app/validate/`, `tests/`, `fixtures/`
-- [ ] `pyproject.toml` con dependencias pinneadas; eliminar `requirements.txt` o regenerarlo desde acá
-- [ ] Smoke test: el monolito legacy sigue corriendo end-to-end con un fixture
-- [ ] Tag `v0.legacy-baseline` para poder comparar regresiones
+- [x] `.gitignore` definitivo (`.venv/`, `__pycache__/`, `logs/`, `*.pyc`, salidas `_anonimizado.*`, `_comparacion.*`)
+- [x] Mover `anonimizador v.5.py` → `app/legacy_monolith.py` (preservar como referencia, no se borra todavía)
+- [x] Crear estructura de paquetes: `app/`, `app/io/`, `app/pipeline/`, `app/detect/`, `app/classify/`, `app/replace/`, `app/validate/`, `tests/`, `fixtures/`
+- [x] `pyproject.toml` con dependencias pinneadas; eliminar `requirements.txt` o regenerarlo desde acá
+- [x] Smoke test: el monolito legacy sigue corriendo end-to-end con un fixture
+- [x] Tag `v0.legacy-baseline` para poder comparar regresiones
 
 **Comentarios:**
-> _vacío_
+> Commit `d50f31d`, tag `v0.legacy-baseline`. CONFIG_PATH del legacy fue ajustado a `parent.parent` para que siga encontrando `config.yaml` en raíz tras el move. `requirements.txt` se dejó por ahora (no molesta); se elimina en PR 15. Smoke test: `load_config` + `build_chunks` OK contra un string de prueba (sin red). Tests reales end-to-end contra LM Studio quedan para cuando el usuario tenga el servidor arriba.
 
 ---
 
