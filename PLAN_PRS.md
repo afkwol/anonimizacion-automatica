@@ -76,22 +76,23 @@ Reemplazar `python-docx .paragraphs` por un walker XML que ve **todo** el conten
 
 ---
 
-## PR 4 — Detección Capa 1: regex deterministas (identificadores)
+## PR 4 — Detección Capa 1: regex deterministas (identificadores) ✅
 
-- [ ] `app/detect/regex_detectors.py` con detectores para:
-  - DNI argentino (`\d{1,2}\.?\d{3}\.?\d{3}` con validación de formato)
-  - CUIT/CUIL (con dígito verificador)
-  - CBU (22 dígitos con validación de checksum)
-  - Email (RFC-lite)
-  - Teléfono argentino (fijo, móvil, con/sin código de área)
-  - Patente automotor (formato viejo y Mercosur)
-  - Pasaporte
-- [ ] Cada detector retorna `Span(start, end, type, value, confidence=1.0, source="regex")`
-- [ ] Tests con casos positivos y negativos por cada detector (no más falsos positivos sobre números de expediente)
-- [ ] **Decisión clave:** estos spans son inmutables y no pasan por LLM; van directo a reemplazo
+- [x] `app/detect/regex_detectors.py` con detectores para DNI, CUIT/CUIL, CBU, EMAIL, TELEFONO, PATENTE (Mercosur + viejo), PASAPORTE
+- [x] CUIT/CUIL: checksum AFIP mod-11 completo
+- [x] CBU: checksum BCRA de dos bloques (8+14)
+- [x] DNI/TELEFONO/PASAPORTE: exigen keyword contextual para evitar falsos positivos sobre números de expediente
+- [x] `app/detect/span.py`: `Span` + `resolve_overlaps` con `SOURCE_PRIORITY` (regex > structure > ner > llm)
+- [x] Tests (25/25): precisión (cero falsos positivos sobre expediente/montos/fechas), recall (todas las variantes de formato), checksums verificados a mano, resolución de solapamientos
 
 **Comentarios:**
-> _vacío_
+> Commit `7dd44e4`. Decisiones:
+> - **DNI exige keyword** (`DNI`, `D.N.I.`, `LE`, `LC`, `documento`) para descartar números de expediente del estilo `12.345/2024`. Falso positivo = anonimizar un número de expediente (grave porque rompe la trazabilidad de la causa); el costo del recall perdido es bajo porque los DNIs en texto legal casi siempre aparecen con keyword.
+> - **Teléfono y pasaporte** mismo criterio: keyword obligatorio.
+> - **CUIT, CBU, Email**: no requieren keyword — tienen suficiente estructura/checksum como para ser autovalidantes.
+> - **Patente viejo** (LLL NNN) tiene confidence 0.75 porque colisiona con siglas. En PR 10 el gate de validación tratará esto con cuidado.
+> - **Checksum AFIP con caso especial**: `check==10 → 9` (convención oficial).
+> - **Compartible con PR 10**: el mismo `detect_all` se re-ejecuta sobre el texto anonimizado. Si encuentra algo, fail-closed.
 
 ---
 
