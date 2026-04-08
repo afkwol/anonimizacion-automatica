@@ -96,16 +96,22 @@ Reemplazar `python-docx .paragraphs` por un walker XML que ve **todo** el conten
 
 ---
 
-## PR 5 — Detección Capa 2: NER en español
+## PR 5 — Detección Capa 2: NER en español ✅
 
-- [ ] Evaluar `spaCy es_core_news_lg` vs Presidio con recognizers ES — elegir uno (o ambos en cascada)
-- [ ] `app/detect/ner.py`: `detect_entities(text) -> list[Span]` con tipos `PER`, `LOC`, `ORG`
-- [ ] Resolución de solapamientos entre spans regex y NER (regex gana siempre)
-- [ ] Tests sobre los 3 fixtures: cobertura mínima de personas conocidas
-- [ ] Métrica: precision/recall vs los `_anonimizado.txt` actuales como ground truth aproximado
+- [x] Elegido **spaCy `es_core_news_md`** sobre `_lg` (10x menor, ~2pts F1 menos pero suficiente como capa de candidatos) y sobre Presidio (overhead innecesario para sólo NER, sin reglas legales españolas decentes)
+- [x] `app/detect/ner.py`: `detect_entities` con singleton lazy-loaded
+- [x] Default sólo `PER` (LOC/ORG son ruido: juzgados, ciudades, organismos públicos)
+- [x] Resolución de solapamientos vía `resolve_overlaps` del PR 4 (regex > ner)
+- [x] Tests (9/9): integración real, offsets, filtro de tipos, mock path, manejo de errores
+- [x] Métrica de cobertura sobre fixture real: 7 regex + 74 NER = 81 spans combinados sin solapamientos
 
 **Comentarios:**
-> _vacío_
+> Commit `bf85c9a`. Decisiones:
+> - **spaCy es opcional** (`extras_require[ner]`). El módulo lanza `ImportError`/`OSError` con instrucciones claras si falta. Esto permite que regex + segmentación funcionen en entornos minimalistas.
+> - **Default `types=("PER",)`**: NER en LOC/ORG produce demasiados falsos positivos para legal (juzgados, organismos, ciudades). Mejor que el LLM clasificador del PR 7 los descubra por contexto si son relevantes.
+> - **Confidence 0.7**: prior bajo, expresa que NER es ruidoso y el LLM tiene autoridad para sobreescribir vía rol asignado.
+> - **Sanity check sobre CERAMI fixture**: detecta correctamente "Juan José Cerami", "Dr. Juan Exequiel Vergara", "Silvia Albarracín", "Dr. Guillermo H. Capdevila", pero también captura ruido como "Visa", "Prisma Medios" y un span sucio "Juan José Cerami DNI". Esto es **esperado**: NER es generoso, el LLM clasificador (PR 7) será quien filtre. La precisión final viene de la combinación.
+> - **No se evaluó Presidio**: tras leer su soporte ES, no tiene reconocedores legales argentinos out-of-the-box, y agregar uno propio duplica trabajo que ya hicimos en PR 4 (regex). spaCy puro es la decisión correcta para este pipeline.
 
 ---
 

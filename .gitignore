@@ -21,9 +21,10 @@ logs/
 *_comparacion.html
 *_FAILED.*
 
-# IDE / OS
+# IDE / OS / Claude Code
 .vscode/
 .idea/
+.claude/
 *.swp
 .DS_Store
 Thumbs.db
