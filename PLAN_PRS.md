@@ -221,13 +221,20 @@ El corazón del cambio. El LLM **nunca reescribe texto**; solo clasifica fichas 
 
 ## PR 11 — Pipeline orquestador y CLI
 
-- [ ] `app/pipeline/run.py`: orquesta extract → segment → detect (regex + NER + structure) → classify (LLM) → coref → replace → validate
-- [ ] CLI `python -m app <archivo>` con flags `--config`, `--debug`, `--dry-run` (solo detección, no reemplazo)
-- [ ] Logging estructurado por etapa, con métricas por fase
-- [ ] El JSONL de auditoría incluye: spans detectados, fichas clasificadas, mapping de coreferencia, placeholders asignados, resultado de cada gate de validación
+- [x] `app/pipeline/run.py`: orquesta extract → detect (regex + zones + NER) → resolve → fichas → classify (LLM) → coref → replace → validate
+- [x] CLI `python -m app <archivo>` con flags `--dry-run`, `--no-ner`, `--debug`, `--audit`, `--base-url`, `--model`, `--batch-size`
+- [x] Logging estructurado por etapa, con métricas (`StageMetrics`)
+- [x] Audit JSON incluye: counts por fase, métricas, resultado de coreferencia (sample por cluster), issues de validación
+- [x] Renombrado a `*_FAILED.docx` cuando la validación falla
 
 **Comentarios:**
-> _vacío_
+> Commit `49e0770`. Decisiones clave:
+> - **Composición sobre herencia**: `run_pipeline()` es una función con `PipelineConfig` inyectado. Facilita testing con mocks (parchear `LMStudioClient.chat`) y permite al GUI pasarle distintos configs sin subclassear.
+> - **Audit es JSON pretty (no JSONL)**: el plan original decía JSONL pero el output natural por documento es un JSON estructurado. JSONL tendría sentido si guardáramos eventos por span; lo dejo para PR 14 si hace falta.
+> - **Placeholders regex estables por valor textual**: el mismo DNI repetido en el doc recibe el mismo `[DNI_N]`. Mismo principio que coreference de personas pero por igualdad textual exacta (los DNIs no tienen variantes).
+> - **Errores de NER no abortan**: si spaCy falla a mitad de pipeline, se loggea warning y se continúa sin NER. La regex y el LLM siguen funcionando.
+> - **`dry_run` no escribe ni valida**: útil para "qué detectaría en este doc sin tocar nada". Audit igualmente se persiste.
+> - **5 tests E2E con LM mockeado**: cubren dry-run, audit serializable, métricas completas, escritura real con validación.
 
 ---
 
