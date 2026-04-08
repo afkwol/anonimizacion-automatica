@@ -115,21 +115,21 @@ Reemplazar `python-docx .paragraphs` por un walker XML que ve **todo** el conten
 
 ---
 
-## PR 6 — Heurística estructural (zonas del documento)
+## PR 6 — Heurística estructural (zonas del documento) ✅
 
-Pre-clasifica zonas obvias antes de invocar al LLM, para reducir costo y mejorar precisión.
-
-- [ ] `app/detect/structure.py`: detecta zonas
-  - **Carátula / encabezado del juzgado** (primeros N párrafos, patrones "Juzgado…", "Expte. N°…")
-  - **Bloque de firma final** (últimos N párrafos, patrones "Es copia", "Firmado:", "Dr./Dra. … Juez/a/Secretario/a")
-  - **Citas doctrinarias** (texto en cursiva o entre comillas tipográficas seguido de coma + año)
-  - **Citas de jurisprudencia** ("CSJN, Fallos…", "CNCiv. Sala…")
-  - **Notas al pie** (en DOCX vienen marcadas, en PDF detectables por tamaño de fuente)
-- [ ] Cada zona pre-asigna un rol por defecto a las entidades adentro
-- [ ] Tests: en los 3 fixtures las zonas detectadas son razonables
+- [x] `app/detect/structure.py`: detecta CARATULA, FIRMA, CITA_DOCTRINA, CITA_JURISPRUDENCIA
+- [x] Cada zona expone `default_role` (PARTE, JUEZ, AUTOR_DOCTRINA, AUTOR_JURISPRUDENCIA) que el clasificador del PR 7 toma como prior
+- [x] `assign_zone()` con resolución de prioridades (citas > carátula/firma)
+- [x] Tests (16/16): cada zona, fallbacks, fixture real, **regresión del bug NANZER**
+- [x] Notas al pie diferidas: en DOCX ya vienen como `footnotes.xml` separadas (PR 1 las extrae); en PDF se evalúa cuando llegue PR 2.
 
 **Comentarios:**
-> _vacío_
+> Commit `d2ab542`. Decisiones y bugs encontrados:
+> - **Bug del NANZER fixture**: la primera versión usaba `re.search` y tomaba el primer match de "PROTOCOLICESE", lo que generaba una zona FIRMA de 40k chars en NANZER porque la palabra aparece como cita interna. Arreglado: tomar el **último** match Y exigir que esté en el último 30% del documento. Hay test de regresión.
+> - **Carátula con fallback de 800 chars**: en los 3 fixtures reales no encontramos los marcadores "Y VISTOS:" / "RESULTA:" en el inicio (Córdoba usa otra estructura). El fallback es razonable y se puede afinar después.
+> - **`default_role` no es imperativo**: es un prior que el LLM puede sobrescribir. Esto preserva la doctrina del enfoque B+C: el clasificador tiene la última palabra.
+> - **CITA_DOCTRINA detecta `conf. art.`**: hay falsos positivos como "conf. args. art. 68 del CPCyC" que NO son doctrina sino citas legales. El LLM clasificador (PR 7) los descartará por contexto. Se podría agregar exclusión por palabra "art./inc." pero prefiero dejarlo permisivo y que el LLM filtre.
+> - **Sanity check sobre los 3 fixtures**: detecta correctamente carátula + firma + múltiples citas en CERAMI/DIAZ/NANZER. La firma de NANZER ahora es 89 chars en vez de 40k.
 
 ---
 
