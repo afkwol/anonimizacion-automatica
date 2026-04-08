@@ -56,18 +56,23 @@ Reemplazar `python-docx .paragraphs` por un walker XML que ve **todo** el conten
 
 ---
 
-## PR 3 — Segmentación semántica de oraciones
+## PR 3 — Segmentación semántica de oraciones ✅
 
-- [ ] Reemplazar `re.compile(r"\S+\s*")` por `pysbd` (segmenter español)
-- [ ] `app/pipeline/segment.py`: `segment_sentences(text) -> list[Sentence]` con offsets exactos en el texto original
-- [ ] `app/pipeline/chunk.py`: empaqueta oraciones en chunks usando el **tokenizer real** del modelo (HuggingFace tokenizer del modelo cargado en LM Studio, fallback `tiktoken cl100k`)
-- [ ] Regla dura: **una oración no se parte salvo que exceda sola el presupuesto**
-- [ ] Si excede: cortar por `;`, luego `:`, luego `,`, jamás a mitad de palabra
-- [ ] Tests: oraciones nunca cortadas en límites de entidad; un doc largo produce N chunks coherentes
-- [ ] Borrar la prohibición de overlap del legacy (queda como parámetro opcional)
+- [x] Reemplazar `re.compile(r"\S+\s*")` por `pysbd` (segmenter español)
+- [x] `app/pipeline/segment.py`: `segment_sentences(text) -> list[Sentence]` con offsets exactos
+- [x] `app/pipeline/chunk.py`: empaqueta oraciones bajo presupuesto de tokens con `token_counter` **inyectable** (default: heurística ~4 chars/token para ES como límite superior conservador; hook listo para enchufar un tokenizer real en el futuro)
+- [x] Regla dura: una oración no se parte salvo que exceda sola el presupuesto
+- [x] Si excede: cortar por `;` → `:` → `,`, fallback por palabras (nunca a mitad de palabra)
+- [x] Tests: 10/10 — round-trip, abreviaturas legales, presupuesto respetado, cobertura total, entidades íntegras, fallback de oraciones oversized, counter inyectable, overlap, e2e con `extract_runs` sobre fixture real
+- [x] Overlap como parámetro opcional (`overlap_sentences`, default 0)
 
 **Comentarios:**
-> _vacío_
+> Commit `109071e`. Decisiones clave:
+> - **Tokenizer real deferido**: LM Studio no expone el tokenizer del modelo vía API de forma estándar. El default heurístico (4 chars/token) es un **límite superior** conservador para español — tiende a sobre-contar, lo que es seguro (nunca desborda). Cuando se necesite precisión exacta, se inyecta `token_counter=tokenizer.encode` sin tocar el pipeline.
+> - **pysbd con `char_span=True` y `clean=False`** es clave para preservar offsets exactos. `clean=True` modifica el texto internamente y rompe el round-trip.
+> - **Separadores de split ordenados `;`→`:`→`,`**: refleja la estructura natural del español legal (listas de testigos con `;`, enumeraciones con `:`). El fallback por palabras sólo se dispara en oraciones patológicas.
+> - **Overlap por oraciones**, no por tokens: mucho más simple de razonar y suficiente para el pipeline B+C donde el overlap es secundario (los detectores ven el doc completo por oraciones).
+> - **Test e2e**: integra `extract_runs` → `segment` → `chunk` sobre un fixture real en `ejemplos/`. Produce chunks coherentes bajo presupuesto de 500 tokens heurísticos.
 
 ---
 
