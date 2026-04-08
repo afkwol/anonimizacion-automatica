@@ -118,6 +118,10 @@ def build_fichas(
         # Skip identificadores numéricos: van directo a anonimización.
         if span.source == "regex":
             continue
+        # Skip citas/autores marcados como preserve: ya sabemos que no
+        # se anonimizan, no tiene sentido gastar una llamada al LLM.
+        if span.metadata.get("preserve"):
+            continue
 
         ctx_start = max(0, span.start - context_chars)
         ctx_end = min(len(full_text), span.end + context_chars)

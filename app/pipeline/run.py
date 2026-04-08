@@ -39,6 +39,7 @@ from app.classify.llm_classifier import (
 )
 from app.classify.lm_client import LMStudioClient, LMStudioConfig
 from app.classify.taxonomy import AnonymizationPolicy, Role
+from app.detect.citations import detect_citations
 from app.detect.regex_detectors import detect_all as detect_regex
 from app.detect.span import Span, resolve_overlaps
 from app.detect.structure import Zone, detect_zones
@@ -173,6 +174,11 @@ def run_pipeline(input_path: Path, config: Optional[PipelineConfig] = None) -> P
     zones: List[Zone] = detect_zones(text)
     _stage(metrics, "detect_zones", len(zones), t0)
 
+    # 3b. Citations (autores/causas — preserve=True)
+    t0 = time.time()
+    citation_spans = detect_citations(text)
+    _stage(metrics, "detect_citations", len(citation_spans), t0)
+
     # 4. NER (opcional)
     ner_spans: List[Span] = []
     if config.use_ner:
@@ -190,7 +196,9 @@ def run_pipeline(input_path: Path, config: Optional[PipelineConfig] = None) -> P
 
     # 5. Resolve overlaps
     t0 = time.time()
-    all_spans = resolve_overlaps(list(regex_spans) + list(ner_spans))
+    all_spans = resolve_overlaps(
+        list(regex_spans) + list(citation_spans) + list(ner_spans)
+    )
     _stage(metrics, "resolve_overlaps", len(all_spans), t0)
 
     # 6. Build fichas (skip regex)
