@@ -185,14 +185,18 @@ El corazón del cambio. El LLM **nunca reescribe texto**; solo clasifica fichas 
 
 ## PR 9 — Reemplazo determinista sobre el documento original
 
-- [ ] `app/replace/text_replacer.py`: aplica spans sobre `str` plano (para texto crudo y debug)
-- [ ] `app/replace/docx_replacer.py`: aplica spans sobre la lista de `TextRun` del PR 1, **preservando formato** (rPr, bold, fuentes, numeración). Repack a `.docx` editable.
-- [ ] `app/replace/pdf_replacer.py`: aplica redacción visual con PyMuPDF (`page.add_redact_annot` + `page.apply_redactions`) sobre los bounding boxes del PR 2. Salida es PDF con cuadros negros reales (no se puede copiar el texto debajo).
-- [ ] La salida ya **no es `.txt`**: es del mismo formato que el input
-- [ ] Tests: roundtrip docx → anonimizar → docx abre en Word sin warnings; PDF redactado no permite copiar texto subyacente
+- [x] `app/replace/text_replacer.py`: aplica spans sobre `str` plano (para texto crudo y debug)
+- [x] `app/replace/docx_replacer.py`: aplica spans sobre la lista de `TextRun` del PR 1, **preservando formato** (rPr, bold, fuentes, numeración). Repack a `.docx` editable.
+- [ ] `app/replace/pdf_replacer.py`: diferido junto con PR 2 (PDF I/O)
+- [x] La salida ya **no es `.txt`**: es del mismo formato que el input (DOCX)
+- [x] Tests: roundtrip docx → anonimizar → docx (12 tests, fixtures reales)
 
-**Comentarios:**
-> _vacío_
+> Commit `96697be`. Decisiones clave:
+> - **Reescritura sólo de las parts modificadas**: las parts intactas se copian byte-a-byte del ZIP original. Esto preserva imágenes, estilos, numbering, content_types, etc., sin riesgo de regresión por re-serialización de lxml.
+> - **`xml:space="preserve"` automático**: si el nuevo texto del run empieza/termina con whitespace, lo agregamos para que Word no lo colapse.
+> - **Spans multi-run**: primer run = `before+replacement`, intermedios = `""`, último = `after`. Los separadores virtuales (\\n entre párrafos) que estaban dentro del span se descartan — coherente con "todo lo que está dentro del span es PII a borrar".
+> - **`apply_replacements` falla rápido en solapamientos**: significa que `resolve_overlaps` no fue llamado río arriba. Silenciar sería peligroso (podría borrar texto correcto).
+> - **Sin reemplazos = `shutil.copyfile`**: ni siquiera abre el ZIP, garantiza idempotencia perfecta.
 
 ---
 
