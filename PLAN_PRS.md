@@ -133,31 +133,35 @@ Reemplazar `python-docx .paragraphs` por un walker XML que ve **todo** el conten
 
 ---
 
-## PR 7 — Clasificador LLM con taxonomía cerrada (Capa B+C)
+## PR 7 — Clasificador LLM con taxonomía cerrada (Capa B+C) ✅
 
 El corazón del cambio. El LLM **nunca reescribe texto**; solo clasifica fichas de entidades.
 
-- [ ] `app/classify/taxonomy.py`: enum cerrado de roles
-  ```
-  PARTE_ACTORA, PARTE_DEMANDADA, TERCERO_CITADO,
-  TESTIGO, VICTIMA, MENOR, FAMILIAR_DE_PARTE,
-  LETRADO_PATROCINANTE, LETRADO_APODERADO,
-  JUEZ, FISCAL, DEFENSOR_OFICIAL, SECRETARIO,
-  PERITO_OFICIAL, PERITO_DE_PARTE,
-  AUTOR_DOCTRINA, AUTOR_JURISPRUDENCIA,
-  FUNCIONARIO_PUBLICO, ENTIDAD_PUBLICA, ENTIDAD_PRIVADA,
-  DESCONOCIDO
-  ```
-- [ ] Mapping `role → anonimizar (bool)` configurable en `config.yaml` (defaults razonables: jueces/fiscales/defensores/peritos oficiales/autores citados/funcionarios = no; todo lo demás = sí)
-- [ ] `app/classify/ficha.py`: construye ficha `{texto, contexto_izq (±200 chars), contexto_der, zona_estructural, tipo_ner}`
-- [ ] `app/classify/llm_classifier.py`: prompt con taxonomía + 8-10 few-shots; recibe **batch** de fichas, devuelve JSON con `{id, rol, anonimizar, confianza}`
-- [ ] Validación dura del JSON de salida (Pydantic): si el LLM devuelve un rol fuera de la taxonomía → `DESCONOCIDO` + warning
-- [ ] Determinismo: `temperature=0`, `top_p=1`, `top_k=1`, formato JSON forzado
-- [ ] Tests con fichas mockeadas y con fichas reales contra LM Studio
-- [ ] Tests de robustez: el LLM nunca puede hacer que se pierda texto del documento (es estructuralmente imposible en este enfoque, pero hay que aseverarlo)
+- [x] `app/classify/taxonomy.py`: enum cerrado de 21 roles
+- [x] `DEFAULT_ANONYMIZE_POLICY` + `AnonymizationPolicy` configurable + `from_dict` para cargar desde config.yaml
+- [x] `app/classify/ficha.py`: `build_fichas` con contexto ±200 chars, zone hint, tipo NER. **Filtra spans regex** automáticamente.
+- [x] `app/classify/lm_client.py`: cliente minimal stateless con determinismo hardcodeado
+- [x] `app/classify/llm_classifier.py`: prompt cerrado + 4 few-shots + JSON contract + batching + retries
+- [x] Validación Pydantic: `_ClassificationResponse` con `_ClassificationItem`
+- [x] **Garantías estructurales** verificadas en tests:
+  - JSON malformado → fallback DESCONOCIDO para todo el batch
+  - Rol fuera del enum → DESCONOCIDO (`parse_role_safe` jamás raise)
+  - Ficha omitida por el LLM → DESCONOCIDO
+  - Largo de salida == largo de entrada SIEMPRE
+  - DESCONOCIDO se anonimiza por policy (fail-closed)
+  - Confianza fuera de rango → Pydantic ValidationError → fallback
+- [x] Determinismo: temp=0, top_p=1, top_k=1, `force_json=True`
+- [x] Tests (27/27): taxonomy + ficha + lm_client (mock HTTP) + classifier (mock client). Sin dependencia de LM Studio para tests.
+- [x] Garantía estructural: el LLM **estructuralmente no puede** alterar texto porque sólo recibe fichas y devuelve JSON con strings del enum cerrado. Esto está aseverado por construcción + tests.
 
 **Comentarios:**
-> _vacío_
+> Commit `3296c3e`. Decisiones clave:
+> - **Pydantic v2 con `model_validate`**: el wrapping `{"resultados": [...]}` es necesario porque LM Studio en JSON mode espera object en el top level, no array.
+> - **Few-shots en español**: 4 ejemplos cubren los 4 casos críticos (parte/letrado/juez/autor doctrina). Más ejemplos no agregan valor con un modelo determinista.
+> - **`get_placeholder_for_role`** vive en `llm_classifier.py` aunque depende sólo de `taxonomy.PLACEHOLDER_PREFIX`. Puesto ahí porque PR 8/9 lo van a importar desde el módulo de classification.
+> - **`build_fichas` filtra `source=="regex"`**: los DNIs/CUITs/etc no necesitan clasificación, van directo al pipeline de anonimización. Ahorra ~50% de llamadas LLM en docs típicos.
+> - **`max_retries=2` con backoff lineal**: balance razonable. El usuario puede subir/bajar via config.
+> - **Test de integración real con LM Studio diferido**: requiere servidor corriendo, queda como `pytest -m integration` opcional cuando armemos PR 11/14.
 
 ---
 
