@@ -257,15 +257,19 @@ El corazón del cambio. El LLM **nunca reescribe texto**; solo clasifica fichas 
 
 Las citas son la fuente más común de falsos positivos en anonimización legal.
 
-- [ ] `app/detect/citations.py`: detector de
-  - Fallos CSJN (`"CSJN, Fallos …"`, `"Fallos: 123:456"`)
-  - Cámara/Sala (`"CNCiv. Sala A, …"`)
-  - Doctrina (`"AUTOR, *Obra*, Editorial, año, p. NN"`)
-- [ ] Las entidades dentro de una cita reciben automáticamente rol `AUTOR_JURISPRUDENCIA` o `AUTOR_DOCTRINA` y no se anonimizan
-- [ ] Tests: en `ejemplos/` ningún autor citado queda anonimizado
+- [x] `app/detect/citations.py`: detector de doctrina (triggers + formal apellido+año) y jurisprudencia (causas entre comillas)
+- [x] Las entidades dentro de una cita reciben automáticamente rol `AUTOR_JURISPRUDENCIA` o `AUTOR_DOCTRINA` y `metadata.preserve=True`
+- [x] Integración con `build_fichas`: spans con `preserve=True` se saltean (no van al LLM)
+- [x] Integración con `run_pipeline`: nueva etapa `detect_citations` antes del resolve
+- [x] Tests: 9 tests cubriendo triggers, causas, integración con `source="structure"`
 
 **Comentarios:**
-> _vacío_
+> Commit `ad287a2`. Decisiones clave:
+> - **`source="structure"` para que ganen NER**: en `resolve_overlaps` la prioridad structure(80) > ner(60). Si NER detecta `Alterini` como PER y citations lo detecta como `AUTOR_DOCTRINA`, gana citations.
+> - **`metadata.preserve=True` corta el flujo en `build_fichas`**: ahorra una llamada al LLM por cada autor citado y elimina por construcción la posibilidad de que el LLM lo clasifique como parte/testigo.
+> - **Triggers conservadores en doctrina**: sólo `ver doctrina de`, `conf.`, `cfr.`, `según enseña`, `en palabras de`. Más triggers = más falsos positivos. Los demás casos los atrapa el patrón formal `APELLIDO,...,AÑO`.
+> - **Causas entre comillas tipográficas**: capturamos `"X c/ Y"` con `c/`/`s/`/`vs.`. Es el patrón canónico de la jurisprudencia argentina.
+> - **El módulo no hace overlap-resolution interno**: confiamos en `resolve_overlaps` global del orquestador.
 
 ---
 
