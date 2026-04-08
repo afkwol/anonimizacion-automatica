@@ -202,15 +202,20 @@ El corazón del cambio. El LLM **nunca reescribe texto**; solo clasifica fichas 
 
 ## PR 10 — Validación post-hoc bloqueante
 
-- [ ] `app/validate/post_checks.py`: re-escanea el documento de salida con los **regex del PR 4**. Si encuentra algo → **fail-closed**, no se entrega el archivo.
-- [ ] Chequeo de longitud: ratio out/in dentro de `[0.85, 1.05]` (ahora es bajo porque borramos PII, pero no debe colapsar el doc)
-- [ ] Chequeo de integridad estructural: en DOCX, número de párrafos/tablas/celdas idéntico al original
-- [ ] Chequeo de placeholders: todo span marcado para anonimizar tiene su placeholder en el output
-- [ ] Si cualquier check falla: el archivo final se nombra `*_FAILED.docx` y se genera reporte detallado
-- [ ] Tests: inyectar fallas y verificar que el gate las atrapa
+- [x] `app/validate/post_checks.py`: re-escanea el documento de salida con los **regex del PR 4**. Si encuentra algo → **fail-closed**.
+- [x] Chequeo de longitud: ratio out/in dentro de `[0.5, 1.1]` (relajado vs plan original; ver comentarios)
+- [x] Chequeo de integridad estructural: parts del ZIP (DOCX) idénticas
+- [x] Chequeo de placeholders: cada placeholder esperado debe aparecer en el output
+- [ ] Renombrar a `*_FAILED.docx` cuando falla — diferido a PR 11 (orquestador, donde se decide el nombre final)
+- [x] Tests: 12 tests inyectando fallas
 
 **Comentarios:**
-> _vacío_
+> Commit `ed03c3d`. Decisiones clave:
+> - **Ratio relajado a `[0.5, 1.1]`**: el plan decía `[0.85, 1.05]` pero borrar muchos nombres largos puede achicar significativamente. 0.5 sigue siendo un piso defensivo (cualquier colapso real cae mucho más abajo).
+> - **`check_regex_leak` corre `detect_all`**: misma función que PR 4. Garantiza que el gate es exactamente la misma lógica que la detección, sin posibilidad de drift.
+> - **`check_docx_structure` chequea names del ZIP, no contenido XML**: si una part desaparece es blocker; si aparece extra es warning (compatibilidad con futuros pipelines que agreguen metadata).
+> - **`ValidationReport.passed` se mantiene actualizado vía `add()`**: API simple, evita olvidar setear el flag.
+> - **Renombrado a `*_FAILED.docx` queda para PR 11**: la decisión del path final del output es del orquestador, no del validador.
 
 ---
 
