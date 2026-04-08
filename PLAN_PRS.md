@@ -167,14 +167,19 @@ El corazón del cambio. El LLM **nunca reescribe texto**; solo clasifica fichas 
 
 ## PR 8 — Coreferencia y consistencia entre menciones
 
-- [ ] `app/classify/coreference.py`: agrupa menciones de la misma entidad por apellido normalizado (lowercase + sin acentos + sin títulos "Dr./Dra./Sr./Sra.")
-- [ ] Política de consistencia: si dos menciones del mismo apellido reciben roles distintos del LLM, usar el rol de mayor confianza y loggear
-- [ ] Asignación de placeholders **estables** y **únicos por entidad**: `[ACTOR_1]`, `[ACTOR_2]`, `[TESTIGO_1]`, etc.
-- [ ] Persistir el mapping `entidad → placeholder` en el log de auditoría
-- [ ] Tests: el mismo nombre repetido N veces siempre recibe el mismo placeholder
+- [x] `app/classify/coreference.py`: agrupa menciones de la misma entidad por apellido normalizado (lowercase + sin acentos + sin títulos "Dr./Dra./Sr./Sra.")
+- [x] Política de consistencia: si dos menciones del mismo apellido reciben roles distintos del LLM, usar el rol de mayor confianza y loggear
+- [x] Asignación de placeholders **estables** y **únicos por entidad**: `[ACTOR_1]`, `[ACTOR_2]`, `[TESTIGO_1]`, etc.
+- [x] Persistir el mapping `entidad → placeholder` en el log de auditoría (`audit_log()`)
+- [x] Tests: el mismo nombre repetido N veces siempre recibe el mismo placeholder (11 tests)
 
 **Comentarios:**
-> _vacío_
+> Commit `cec3830`. Decisiones clave:
+> - **Cluster key = último token del nombre normalizado**: simple y suficiente para casos judiciales típicos. Casos compuestos como "Pérez de la Rúa" caerían en "rua"; aceptable porque el contexto del LLM separa identidades distintas via otros tokens.
+> - **Conflict resolution por confianza**: cuando el LLM clasifica el mismo apellido con roles distintos en distintas menciones, gana el de mayor `confidence`. Loggeado a INFO.
+> - **Contadores por rol independientes**: `[ACTOR_1]`, `[ACTOR_2]`, `[TESTIGO_1]` (no global). Replica la convención del legacy y es más legible.
+> - **`audit_log()` devuelve dicts**: serializable a JSON sin esfuerzo, listo para PR 11.
+> - **Singletons sin apellido válido** reciben key `__singleton_<id>` para no colapsar entre sí.
 
 ---
 
