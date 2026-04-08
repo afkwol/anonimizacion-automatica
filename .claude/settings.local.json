@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python.exe -m pip install --quiet spacy)",
+      "Bash(.venv/Scripts/python.exe -m spacy download es_core_news_md)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_ner.py -q)",
+      "Bash(.venv/Scripts/python.exe -c ':*)"
+    ]
+  }
+}
