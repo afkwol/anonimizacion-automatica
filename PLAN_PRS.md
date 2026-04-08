@@ -20,20 +20,26 @@ Cada PR es atómico, reviewable, y deja la app funcionando. Marcar `[x]` al comp
 
 ---
 
-## PR 1 — Capa de I/O: extracción robusta DOCX
+## PR 1 — Capa de I/O: extracción robusta DOCX ✅
 
 Reemplazar `python-docx .paragraphs` por un walker XML que ve **todo** el contenido (tablas, headers, footers, footnotes, text boxes).
 
-- [ ] `app/io/soffice.py`: wrapper LibreOffice headless (`.doc` → `.docx`)
-- [ ] `app/io/docx_unpack.py`: unpack DOCX a directorio temporal (ZIP → XMLs)
-- [ ] `app/io/docx_walk.py`: itera todos los `<w:t>` con `(xml_path, element_id, offset_in_run, text)`
-- [ ] Modelo de datos `TextRun(file, xpath, run_id, char_start, char_end, text)`
-- [ ] Función `extract_runs(docx_path) -> list[TextRun]` cubre paragraphs + tablas + headers/footers + footnotes
-- [ ] Test sobre los 3 fixtures de `ejemplos/`: el texto extraído incluye carátula, firmas y tablas
-- [ ] Comparar cobertura vs `python-docx` (debe ser estrictamente mayor o igual)
+- [ ] `app/io/soffice.py`: wrapper LibreOffice headless (`.doc` → `.docx`) — **diferido a PR 1.1** cuando aparezca un `.doc` legacy real
+- [x] ~~`app/io/docx_unpack.py`: unpack DOCX a directorio temporal~~ — no hizo falta desempacar a disco; se lee el ZIP en memoria con `zipfile`+`lxml`, más simple y sin side effects
+- [x] Walker XML: `_iter_text_nodes` itera todos los `<w:t>` en orden de documento, incluyendo tablas, text boxes, smartArt (vía `iter()` del árbol completo)
+- [x] Modelo de datos `TextRun(part, run_index, text, char_start, char_end)` + `DocxDocument` bundle
+- [x] `extract_runs(docx_path) -> DocxDocument` cubre `document.xml`, `header*.xml`, `footer*.xml`, `footnotes.xml`, `endnotes.xml`, `comments.xml`
+- [x] Tests sobre los 3 fixtures: offsets round-trip, cobertura ≥ python-docx (comparación normalizada + verificación palabra por palabra)
+- [x] Comparación vs `python-docx`: 9/9 tests pasan. Los fixtures actuales no tienen headers/footers/footnotes, así que la ventaja estructural se verifica en los tests por no-regresión; queda probada en el campo cuando llegue un doc real con headers.
 
 **Comentarios:**
-> _vacío_
+> Commit `8a996c7`. Decisiones clave:
+> - **No unpack a disco**: `zipfile.ZipFile` + `lxml.etree.fromstring` en memoria. Más rápido, sin cleanup, sin riesgo de dejar basura en `/tmp`.
+> - **Separador entre parts = `\n\n`** (cuerpo vs header vs footer) y **separador entre párrafos = `\n`** (igual que python-docx). Elegido así porque el segmenter de PR 3 usa líneas en blanco como límite duro.
+> - **Preservación de `<w:p>` ancestro por nodo** para poder emitir `\n` al cambiar de párrafo. El test inicial fallaba por 1-10 chars justamente por esto; resuelto.
+> - **Test de no-regresión**: en vez de comparar bytes crudos (sensible a diferencias de whitespace), normalizo whitespace y además chequeo que ninguna palabra >3 chars del extractor viejo desaparezca en el nuevo. Esto es robusto y atrapa regresiones reales.
+> - **Pendiente para PR 9**: el reemplazo deberá tocar el XML directamente usando `(part, run_index)` como clave. Ya está preparado el modelo de datos para eso.
+> - **Pendiente para PR 2**: soffice wrapper para `.doc` legacy, sólo cuando aparezca un fixture que lo requiera.
 
 ---
 
