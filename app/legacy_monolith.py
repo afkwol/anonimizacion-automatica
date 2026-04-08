@@ -24,7 +24,7 @@ from tkinter import filedialog, messagebox, ttk
 # ==========================
 # 1. CONFIGURACIÓN Y UTILIDADES
 # ==========================
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_PATH = BASE_DIR / "config.yaml"
 
 DEFAULT_CONFIG: Dict[str, Any] = {

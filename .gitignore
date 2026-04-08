@@ -1,4 +1,34 @@
+# Entornos y caches
 .venv/
+venv/
+env/
 __pycache__/
-logs/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logs y salidas generadas
+logs/
+*.log
+
+# Salidas de anonimización (no commitear documentos procesados)
+*_anonimizado.txt
+*_anonimizado.docx
+*_anonimizado.pdf
+*_comparacion.html
+*_FAILED.*
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Build
+build/
+dist/
+*.egg-info/
