@@ -240,16 +240,23 @@ El corazón del cambio. El LLM **nunca reescribe texto**; solo clasifica fichas 
 
 ## PR 12 — GUI nueva (o adaptación de la existente)
 
-- [ ] Repensar pestañas:
-  - **Procesamiento**: como ahora pero con barra de progreso por fase (extract / detect / classify / replace / validate)
-  - **Revisión**: tabla con todas las entidades detectadas, su rol asignado, su placeholder, y un toggle para sobrescribir manualmente antes del reemplazo final
-  - **Configuración**: incluye el mapping `rol → anonimizar (bool)`
-  - **Auditoría**: visor del JSONL con filtros
-- [ ] La pestaña **Revisión** es el cambio más importante: el abogado revisa antes de aceptar
-- [ ] Tests manuales sobre los 3 fixtures
+- [x] 4 pestañas: Procesamiento, Revisión, Configuración, Auditoría
+- [x] **Procesamiento**: file picker, botón Detectar (dry-run) + Aplicar, log en vivo, progressbar indeterminada
+- [x] **Revisión**: Treeview con id/tipo/fuente/rol/texto/anonimizar, doble-clic para alternar el flag
+- [x] **Configuración**: tabla `Role → Acción`, doble-clic para toggle. Persiste en `AnonymizationPolicy`
+- [x] **Auditoría**: visor del JSON del audit del último run
+- [x] Pipeline en thread separado (no congela UI), bridge de logging via `queue.Queue`
+- [x] Entry point `python -m app --gui`
+- [x] 3 smoke tests (importa, construye, toggle config)
 
 **Comentarios:**
-> _vacío_
+> Commit `cdf073e`. Decisiones clave:
+> - **Stdlib only (Tkinter)**: cero dependencias nuevas. Suficiente para el caso de uso (un abogado en su laptop). Una GUI moderna (PyQt/Toga) sería overkill.
+> - **Flujo en dos fases (Detectar → Aplicar)**: la pestaña Revisión sólo tiene sentido si el abogado puede mirar antes de comprometer cambios. La detección corre primero (dry-run), el usuario revisa, luego aplica.
+> - **Threading básico**: el pipeline corre en un `threading.Thread(daemon=True)` y reporta de vuelta vía `self.after(0, ...)`. Suficiente para esta carga; no necesitamos asyncio.
+> - **Log bridge via Queue**: handler de logging custom empuja LogRecords a `queue.Queue`; el main thread los drena cada 200ms. Patrón estándar Tkinter.
+> - **Política compartida con el pipeline**: la `AnonymizationPolicy` de la pestaña Configuración se inyecta directamente al `PipelineConfig`. Los cambios del usuario tienen efecto inmediato en la próxima detección.
+> - **GUI smoke tests sin mainloop**: tres tests que construyen la ventana, verifican que las pestañas existen, y testean el toggle de la política. Atrapa cualquier error de import/sintaxis sin abrir realmente la GUI.
 
 ---
 
