@@ -30,7 +30,9 @@ class LMStudioConfig:
     temperature: float = 0.0
     top_p: float = 1.0
     top_k: int = 1
-    max_tokens: int = 2048
+    # Default alto para modelos reasoning (qwen3, deepseek-r1, etc.) que
+    # gastan tokens en `reasoning_content` antes de llegar al `content`.
+    max_tokens: int = 8192
 
 
 class LMStudioClient:
@@ -91,7 +93,11 @@ class LMStudioClient:
             "max_tokens": max_tokens or cfg.max_tokens,
         }
         if force_json:
-            payload["response_format"] = {"type": "json_object"}
+            # LM Studio rechaza `json_object`; sólo acepta `json_schema` o `text`.
+            # Usamos `text` y confiamos en el parser Pydantic del clasificador
+            # (con el SYSTEM_PROMPT explícito que pide JSON puro). El few-shot
+            # del prompt + temperature=0 son suficientes en la práctica.
+            payload["response_format"] = {"type": "text"}
 
         try:
             r = requests.post(
@@ -108,10 +114,25 @@ class LMStudioClient:
             raise RuntimeError(f"Respuesta no-JSON de LM Studio: {exc}") from exc
 
         try:
-            content = data["choices"][0]["message"]["content"]
+            choice = data["choices"][0]
+            message = choice["message"]
+            content = message.get("content") or ""
+            finish_reason = choice.get("finish_reason")
         except (KeyError, IndexError, TypeError) as exc:
             raise RuntimeError(f"Estructura de respuesta inesperada: {data}") from exc
 
-        if not content or not content.strip():
-            raise RuntimeError("LM Studio devolvió contenido vacío.")
+        if not content.strip():
+            # Caso típico: modelo reasoning (qwen3, deepseek-r1) que gastó
+            # todos los tokens pensando antes de emitir contenido.
+            reasoning = message.get("reasoning_content") or ""
+            if reasoning and finish_reason == "length":
+                raise RuntimeError(
+                    "LM Studio devolvió contenido vacío: el modelo cargado es "
+                    "un reasoning model y se quedó sin tokens en la fase de "
+                    "razonamiento. Subí `max_tokens` (>= 16384) o cargá un "
+                    "modelo no-reasoning (instruct) en LM Studio."
+                )
+            raise RuntimeError(
+                f"LM Studio devolvió contenido vacío (finish_reason={finish_reason})."
+            )
         return content

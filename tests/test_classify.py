@@ -142,7 +142,8 @@ class TestLMClient:
         assert body["temperature"] == 0.0
         assert body["top_p"] == 1.0
         assert body["top_k"] == 1
-        assert body["response_format"] == {"type": "json_object"}
+        # LM Studio rechaza json_object; usamos "text" y validamos vía Pydantic.
+        assert body["response_format"] == {"type": "text"}
         assert body["messages"][0]["role"] == "system"
 
     def test_chat_response_vacia_falla(self) -> None:
