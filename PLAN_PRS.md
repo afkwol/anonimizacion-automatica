@@ -275,13 +275,18 @@ Las citas son la fuente más común de falsos positivos en anonimización legal.
 
 ## PR 14 — Evaluación cuantitativa y golden tests
 
-- [ ] `tests/golden/`: para cada fixture, un JSON con las entidades esperadas y su rol esperado (curado a mano)
-- [ ] `tests/test_pipeline_e2e.py`: corre el pipeline completo y compara contra los golden
-- [ ] Métricas reportadas: precision/recall por rol, % de identificadores numéricos atrapados, tiempo total
-- [ ] Umbral mínimo para merge: recall ≥ 0.98 sobre identificadores numéricos, ≥ 0.90 sobre personas
+- [x] `tests/golden/expectations.json`: thresholds mínimos por fixture (curado a mano)
+- [x] `tests/test_pipeline_e2e.py`: corre el pipeline completo (LLM mockeado) por fixture y verifica conteos, validación, placeholders
+- [x] Asserts duros: min DNIs/CUITs detectados, validación pasa, placeholders esperados presentes
+- [ ] Precision/recall sobre PERSONAS: requiere LM Studio real corriendo — diferido a smoke manual
 
 **Comentarios:**
-> _vacío_
+> Commit `2667399`. Decisiones clave:
+> - **Thresholds MÍNIMOS, no exactos**: el pipeline puede atrapar más entidades de las esperadas, nunca menos. Esto evita que mejoras de detección (más recall) rompan tests.
+> - **LLM mockeado a `resultados: []`**: los golden tests no requieren LM Studio. Validan el pipeline determinista (regex + structure + replace + validate). El test contra LLM real queda como smoke manual hasta que tengamos un servidor en CI.
+> - **Validación fail-closed como assert duro**: si la pipeline filtra cualquier identificador, el test E2E falla. Esta es la garantía más importante del producto.
+> - **Placeholders esperados como sanity check**: si CERAMI no produce `[DNI_1]` y `[CUIT_1]`, algo se rompió en la cadena de reemplazo aunque la validación pase.
+> - **Métricas precision/recall sobre PERSONAS diferidas**: requieren un golden con nombres anotados a mano + LLM real. Es un PR de refinamiento posterior.
 
 ---
 
