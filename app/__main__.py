@@ -24,7 +24,8 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         prog="anonimizador",
         description="Anonimizador determinista de documentos judiciales (B+C).",
     )
-    p.add_argument("input", type=Path, help="Archivo .docx de entrada")
+    p.add_argument("input", type=Path, nargs="?", help="Archivo .docx de entrada")
+    p.add_argument("--gui", action="store_true", help="Lanzar la GUI Tkinter")
     p.add_argument("--dry-run", action="store_true", help="No escribir output")
     p.add_argument("--no-ner", action="store_true", help="Saltear NER")
     p.add_argument("--debug", action="store_true")
@@ -42,6 +43,15 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
+    if args.gui:
+        from app.gui.app import main as gui_main
+
+        gui_main()
+        return 0
+
+    if args.input is None:
+        print("ERROR: especificá un archivo o usá --gui", file=sys.stderr)
+        return 2
     if not args.input.exists():
         print(f"ERROR: no existe {args.input}", file=sys.stderr)
         return 2
