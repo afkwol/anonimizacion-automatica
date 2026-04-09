@@ -133,6 +133,14 @@ def build_fichas(
 
         ner_type = span.type if span.source == "ner" else None
 
+        # Si el span trae un role_hint estructural (ej: detector de
+        # carátula), prevalece sobre el default_role de la zona genérica.
+        # El LLM lo recibe como pista_rol y puede confirmarlo o
+        # sobreescribirlo si tiene alta confianza.
+        span_role_hint = span.metadata.get("role_hint")
+        zone_name = zone.name if zone else None
+        default_role = span_role_hint or (zone.default_role if zone else None)
+
         fichas.append(
             Ficha(
                 id=next_id,
@@ -140,8 +148,8 @@ def build_fichas(
                 text=span.text,
                 context_left=context_left,
                 context_right=context_right,
-                zone_hint=zone.name if zone else None,
-                zone_default_role=zone.default_role if zone else None,
+                zone_hint=zone_name,
+                zone_default_role=default_role,
                 ner_type=ner_type,
             )
         )

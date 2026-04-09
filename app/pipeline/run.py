@@ -39,6 +39,7 @@ from app.classify.llm_classifier import (
 )
 from app.classify.lm_client import LMStudioClient, LMStudioConfig
 from app.classify.taxonomy import AnonymizationPolicy, Role
+from app.detect.caratula_parties import detect_caratula_parties
 from app.detect.citations import detect_citations
 from app.detect.regex_detectors import detect_all as detect_regex
 from app.detect.span import Span, resolve_overlaps
@@ -68,7 +69,7 @@ class PipelineConfig:
     """Configuración del pipeline. Inyectable desde CLI/GUI."""
 
     use_ner: bool = True
-    ner_model: str = "es_core_news_md"
+    ner_model: str = "es_core_news_lg"
     llm_config: LMStudioConfig = field(default_factory=LMStudioConfig)
     policy: AnonymizationPolicy = field(default_factory=AnonymizationPolicy)
     batch_size: int = 10
@@ -179,6 +180,12 @@ def run_pipeline(input_path: Path, config: Optional[PipelineConfig] = None) -> P
     citation_spans = detect_citations(text)
     _stage(metrics, "detect_citations", len(citation_spans), t0)
 
+    # 3c. Carátula parties (estructural; resuelve falla del NER en
+    # nombres MAYÚSCULA tipo `APELLIDO, NOMBRE c/ ...`).
+    t0 = time.time()
+    caratula_party_spans = detect_caratula_parties(text)
+    _stage(metrics, "detect_caratula_parties", len(caratula_party_spans), t0)
+
     # 4. NER (opcional)
     ner_spans: List[Span] = []
     if config.use_ner:
@@ -197,7 +204,10 @@ def run_pipeline(input_path: Path, config: Optional[PipelineConfig] = None) -> P
     # 5. Resolve overlaps
     t0 = time.time()
     all_spans = resolve_overlaps(
-        list(regex_spans) + list(citation_spans) + list(ner_spans)
+        list(regex_spans)
+        + list(citation_spans)
+        + list(caratula_party_spans)
+        + list(ner_spans)
     )
     _stage(metrics, "resolve_overlaps", len(all_spans), t0)
 

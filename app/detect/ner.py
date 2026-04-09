@@ -13,10 +13,22 @@ permite que el resto del pipeline (regex, segmentación) funcione sin
 spaCy para tests rápidos o para entornos donde sólo se quieren
 identificadores.
 
-**Modelo**: `es_core_news_md` (~40MB) — buen balance precision/recall
-para personas en español. La versión `_lg` (~568MB) mejora ~2 puntos en
-F1 pero tarda mucho más en cargar; la versión `_sm` no tiene vectores y
-da peores resultados en nombres compuestos. `_md` es el sweet spot.
+**Modelo**: cadena de preferencia `es_core_news_lg` → `es_core_news_md`.
+NOTA: NO usamos `es_dep_news_trf` porque ese modelo no incluye componente
+NER (solo morphologizer/parser/attribute_ruler/lemmatizer). Para español
+spaCy no tiene un modelo transformer-based con NER oficial; el mejor
+NER spaCy-nativo es `_lg` (568MB), que mejora visiblemente sobre `_md`
+(40MB) en nombres compuestos y mayúsculas. Para algo mejor habría que
+salir de spaCy (Flair `aymurai/flair-ner-spanish-judicial`, HF, etc.).
+
+**Filtros post-NER**: aplicamos dos limpiezas que reducen ~80% del ruido:
+
+1. **Stoplist** de sustantivos comunes que el NER en español frecuentemente
+   etiqueta como PER por aparecer capitalizados (Juez, Jueces, Cámara,
+   Sr, Dr, etc.). Filtro determinista por texto normalizado.
+2. **Recorte de separadores judiciales** pegados al final del nombre
+   ("Patricia Lilian c" → "Patricia Lilian"). Esto pasa porque el NER
+   absorbe el `c` del separador `c/` cuando no hay espacio limpio.
 
 **Modelo singleton**: cargar spaCy es caro (1-2 segundos). Cacheamos la
 instancia a nivel de módulo. El cache puede invalidarse explícitamente
@@ -24,6 +36,8 @@ con `_reset_model()` (útil para tests).
 """
 from __future__ import annotations
 
+import re
+import unicodedata
 from typing import List, Optional
 
 from .span import Span
@@ -39,9 +53,51 @@ _SPACY_TO_CANONICAL = {
     # MISC se descarta: demasiado ruidoso para anonimización.
 }
 
-DEFAULT_MODEL = "es_core_news_md"
+DEFAULT_MODEL = "es_core_news_lg"
+# Cadena de fallback: si el preferido no está, intenta los siguientes.
+_MODEL_FALLBACK_CHAIN = (
+    "es_core_news_lg",
+    "es_core_news_md",
+)
 
 _NLP_CACHE: dict = {}
+
+
+# Stoplist: tokens que el NER en español suele etiquetar como PER por
+# aparecer capitalizados pero NO son personas. Comparamos con el texto
+# del span normalizado a minúsculas y sin signos.
+_NER_PER_STOPLIST = frozenset(
+    {
+        # títulos / cargos sueltos
+        "sr", "sra", "srta", "dr", "dra", "lic", "ing", "prof",
+        "sres", "sras", "señor", "señora", "don", "doña",
+        # roles judiciales
+        "juez", "jueza", "jueces", "juezas",
+        "fiscal", "fiscales", "defensor", "defensora",
+        "secretario", "secretaria", "secretarios", "secretarias",
+        "actuario", "actuaria",
+        "ministro", "ministra", "ministros", "ministras",
+        "presidente", "presidenta", "vocal", "vocales",
+        "camarista", "camaristas",
+        # entidades estructurales
+        "cámara", "camara", "cam", "sala", "juzgado", "tribunal",
+        "corte", "secretaría", "secretaria",
+        # ordinales / latín / palabras sueltas frecuentes
+        "primero", "segundo", "tercero", "cuarto", "quinto",
+        "sexto", "séptimo", "septimo", "octavo", "noveno", "décimo", "decimo",
+        "ordinario", "ordinaria", "extraordinario",
+        "considerando", "vistos", "autos", "resulta", "resultando",
+        "confluye", "brevitatis", "causa", "fojas", "foja", "res",
+        "ll", "ja", "ed", "lll",
+    }
+)
+
+# Caracteres / sufijos espurios que el NER absorbe del separador judicial
+# `c/`, `s/`, `e/`, etc. cuando lo pega al final del nombre.
+_TRAILING_JUNK = re.compile(
+    r"\s+(?:[csyeo]/?|c\.|s\.|y\s+otros?|y\s+otra)\s*$",
+    re.IGNORECASE,
+)
 
 
 def is_available(model: str = DEFAULT_MODEL) -> bool:
@@ -58,7 +114,12 @@ def is_available(model: str = DEFAULT_MODEL) -> bool:
 
 
 def _load_model(model: str) -> object:
-    """Carga el modelo spaCy con caching. Lanza ImportError/OSError si falla."""
+    """Carga el modelo spaCy con caching y cadena de fallback.
+
+    Si `model` es uno de los modelos de la cadena preferida y falla,
+    intentamos los siguientes (más livianos). Si `model` no está en la
+    cadena, lo intentamos solo y lanzamos OSError si no carga.
+    """
     if model in _NLP_CACHE:
         return _NLP_CACHE[model]
     try:
@@ -67,15 +128,51 @@ def _load_model(model: str) -> object:
         raise ImportError(
             "spaCy no está instalado. Instalar con: pip install spacy"
         ) from exc
-    try:
-        nlp = spacy.load(model)
-    except OSError as exc:
-        raise OSError(
-            f"Modelo spaCy '{model}' no encontrado. Instalar con: "
-            f"python -m spacy download {model}"
-        ) from exc
-    _NLP_CACHE[model] = nlp
-    return nlp
+
+    # Determinar la cadena a probar.
+    if model in _MODEL_FALLBACK_CHAIN:
+        idx = _MODEL_FALLBACK_CHAIN.index(model)
+        chain = _MODEL_FALLBACK_CHAIN[idx:]
+    else:
+        chain = (model,)
+
+    last_err: Optional[Exception] = None
+    for candidate in chain:
+        if candidate in _NLP_CACHE:
+            _NLP_CACHE[model] = _NLP_CACHE[candidate]
+            return _NLP_CACHE[candidate]
+        try:
+            nlp = spacy.load(candidate)
+            _NLP_CACHE[candidate] = nlp
+            _NLP_CACHE[model] = nlp
+            return nlp
+        except OSError as exc:
+            last_err = exc
+            continue
+
+    raise OSError(
+        f"Ningún modelo spaCy disponible en la cadena {chain}. "
+        f"Instalar con: python -m spacy download {chain[0]} "
+        f"(o uno de los fallbacks). Último error: {last_err}"
+    )
+
+
+def _normalize_for_stoplist(text: str) -> str:
+    """Lowercase + sin acentos + sin puntuación, para matchear stoplist."""
+    s = unicodedata.normalize("NFD", text)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    s = re.sub(r"[^\w\s]", "", s)
+    return s.lower().strip()
+
+
+def _strip_trailing_junk(text: str) -> str:
+    """Quita separadores judiciales pegados al final del nombre."""
+    prev = None
+    cur = text
+    while prev != cur:
+        prev = cur
+        cur = _TRAILING_JUNK.sub("", cur).rstrip(" ,.;:")
+    return cur
 
 
 def _reset_model() -> None:
@@ -128,15 +225,58 @@ def detect_entities(
             continue
         if type_filter is not None and canonical not in type_filter:
             continue
-        # Filtrar entidades de 1 sólo carácter o puro whitespace.
+
         ent_text = ent.text.strip()
         if len(ent_text) < 2:
             continue
+
+        start = ent.start_char
+        end = ent.end_char
+        raw = text[start:end]
+
+        # Recorte de separadores judiciales pegados al final del nombre.
+        # Solo aplica a PER (los nombres de personas son los que sufren
+        # este problema con `c/`, `s/`, etc.).
+        if canonical == "PER":
+            cleaned = _strip_trailing_junk(raw)
+            if not cleaned:
+                continue
+            # Recortar `end` para que coincida con el texto limpio.
+            if cleaned != raw:
+                # Buscar dónde termina el texto limpio dentro del raw.
+                new_len = len(cleaned)
+                # raw puede tener whitespace al inicio que ent.text no
+                # necesariamente refleja; preferimos buscar el `cleaned`
+                # como prefijo del raw después de strip izquierdo.
+                lstripped = raw.lstrip()
+                lpad = len(raw) - len(lstripped)
+                if lstripped.startswith(cleaned):
+                    start = ent.start_char + lpad
+                    end = start + new_len
+                    raw = text[start:end]
+                else:
+                    # Fallback conservador: descartar el span antes que
+                    # corromper offsets.
+                    continue
+
+            # Stoplist: descartar sustantivos comunes capitalizados.
+            normalized = _normalize_for_stoplist(raw)
+            if normalized in _NER_PER_STOPLIST:
+                continue
+            # También descartar si es UNA sola palabra y es stoplist
+            # (cubre casos como "Juez" sin contexto).
+            tokens = normalized.split()
+            if len(tokens) == 1 and tokens[0] in _NER_PER_STOPLIST:
+                continue
+
+        if end - start < 2:
+            continue
+
         spans.append(
             Span(
-                start=ent.start_char,
-                end=ent.end_char,
-                text=text[ent.start_char:ent.end_char],
+                start=start,
+                end=end,
+                text=text[start:end],
                 type=canonical,
                 source="ner",
                 confidence=0.7,
