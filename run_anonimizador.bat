@@ -9,6 +9,7 @@ if not exist "%~dp0.venv\Scripts\activate.bat" (
 )
 
 call "%~dp0.venv\Scripts\activate.bat"
-python "%~dp0anonimizador v.5.py"
+cd /d "%~dp0"
+python -m app --gui
 
 endlocal
