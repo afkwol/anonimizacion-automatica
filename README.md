@@ -1,88 +1,91 @@
-# Anonimizador de Documentos Legales
+# Anonimizador 2.0
 
-Aplicación de escritorio en Python que anonimiza archivos judiciales PDF y Word de forma local. El flujo divide cada documento en fragmentos, envía cada chunk a un modelo de lenguaje servido por [LM Studio](https://lmstudio.ai), aplica reglas estrictas de anonimización y reconstruye el documento final. Incluye una interfaz gráfica con pestañas para configurar parámetros, seguir el progreso y revisar los registros.
+Anonimizador determinista de documentos judiciales argentinos (Word `.docx`)
+con LLM como **clasificador** (no como reescritor) y validación fail-closed.
+
+Diseñado para abogados que necesitan publicar jurisprudencia preservando los
+roles públicos (jueces, fiscales, autores citados) y anonimizando los privados
+(partes, testigos, letrados, peritos de parte) **sin alucinaciones, sin
+problemas de chunkeo y sin pérdida de formato**.
+
+## Garantías de diseño
+
+- **El LLM no puede alterar texto.** Recibe sólo "fichas" (entidad + ±200
+  caracteres de contexto) y devuelve un rol del enum cerrado. Cualquier
+  respuesta fuera del enum cae en `DESCONOCIDO` → se anonimiza (fail-closed).
+- **Identificadores numéricos vía regex con checksum.** DNI, CUIT (mod-11),
+  CBU (dos bloques BCRA), email, teléfono, patente, pasaporte. No pasan por
+  el LLM: van directo a anonimización.
+- **Formato preservado.** El reemplazo se hace in-place sobre los `<w:t>` del
+  XML del DOCX, copiando byte-a-byte las parts no modificadas. Negritas,
+  fuentes, numeración, headers, footers, footnotes — todo intacto.
+- **Determinismo total.** `temperature=0`, `top_p=1`, `top_k=1` hardcoded.
+- **Validación post-hoc bloqueante.** Re-corre los regex sobre el output;
+  si filtra cualquier identificador, el archivo se renombra a
+  `*_FAILED.docx` y NO se entrega.
+- **Citas de doctrina y jurisprudencia preservadas.** Detector dedicado
+  (`CSJN`, `Fallos:`, `"X c/ Y"`, `ver doctrina de NOMBRE`, `conf. NOMBRE`,
+  patrón `APELLIDO, ..., AÑO`) marca autores como `preserve=True` antes de
+  llegar al LLM.
+- **Coreferencia estable.** El mismo apellido recibe el mismo placeholder
+  (`[ACTOR_1]`, `[TESTIGO_2]`) en todo el documento.
 
 ## Requisitos
 
-- Python 3.9 o superior (probado en Windows).
-- LM Studio instalado con el servidor local habilitado.
-- Dependencias Python listadas en `requirements.txt`.
+- Python 3.10+
+- LM Studio con un modelo cargado y servidor local activo
+- Dependencias: `pip install -e .[ner,dev]`
+- spaCy NER (opcional): `python -m spacy download es_core_news_md`
 
-Instalación de dependencias:
+## Uso
 
-```bash
-python3 -m pip install -r requirements.txt
+### GUI
+
+```
+run_anonimizador.bat        # Windows
+python -m app --gui         # cualquier plataforma
 ```
 
-> `tkinter` se incluye con la mayoría de instalaciones oficiales de Python en Windows. Si falta, instalá Python desde [python.org](https://www.python.org/) seleccionando la opción “tcl/tk and IDLE”.
+Flujo de la GUI:
 
-## Configuración
+1. **Procesamiento** — elegí el `.docx`, click en **1. Detectar (dry-run)**.
+2. **Revisión** — tabla de spans detectados con su rol asignado y un toggle
+   "anonimizar". Doble clic para alternar entradas individuales.
+3. **Configuración** — política `Role → anonimizar (bool)`. Editable.
+4. **Aplicar y validar** (vuelta a Procesamiento) — escribe el archivo final
+   y corre el gate de validación.
+5. **Auditoría** — JSON con todo lo que pasó por etapa.
 
-La configuración se almacena en `config.yaml` y admite override mediante variables de entorno. Campos principales:
-
-- `lm_api`: `base_url`, `api_key`, `model` que LM Studio expondrá.
-- `chunking`: parámetros de troceo en tokens (`max_context_tokens`, `overlap_tokens`, `safety_factor`).
-- `inference`: hiperparámetros enviados al endpoint `/chat/completions`.
-- `runtime`: comportamiento del pipeline (directorio de logs, reintentos, modo debug, etc.).
-
-Variables de entorno opcionales (ejemplos):
+### CLI
 
 ```bash
-set LM_API_BASE=http://127.0.0.1:1234/v1
-set LM_API_KEY=lm-studio
-set LM_API_MODEL=granite-3.1-8b-instruct
-set LOGS_DIR=C:\anonimizador\logs
+python -m app archivo.docx                          # full pipeline
+python -m app --dry-run --no-ner archivo.docx       # solo detección, sin spaCy
+python -m app --base-url http://192.168.1.10:1234/v1 archivo.docx
 ```
 
-La pestaña **Configuración** de la GUI permite editar y guardar estos valores sin abrir el archivo manualmente.
+Genera dos archivos al lado del input:
+- `archivo_anonimizado.docx` (o `_FAILED.docx` si la validación falla)
+- `archivo_audit.json`
 
-## Puesta en marcha
+## Configuración de LM Studio
 
-1. Abrí LM Studio, cargá el modelo deseado y activá el servidor local (`Start Server`). El endpoint por defecto es `http://127.0.0.1:1234/v1`.
-2. Cloná o copiá este proyecto y abrí una terminal en el directorio raíz.
-3. Instalá dependencias: `python3 -m pip install -r requirements.txt`.
-4. Ejecutá la aplicación:
+LM Studio acepta `response_format: text` (no `json_object`). El cliente lo
+maneja transparente. Si tu modelo es **reasoning** (qwen3, deepseek-r1), subí
+`max_tokens` ≥ 16384 — el modelo gasta tokens en `reasoning_content` antes
+del `content`. Lo más simple: cargá un instruct model (qwen2.5-instruct,
+llama-3-instruct, granite-3-instruct).
 
-   ```bash
-   python3 "anonimizador v.5.py"
-   ```
+## Tests
 
-   En Windows se puede asociar el script a `python.exe` y ejecutarlo con doble click, siempre que el PATH y las dependencias estén configuradas.
+```bash
+pytest -q                                  # 152 tests, todo mockeado
+pytest tests/test_pipeline_e2e.py -v       # golden por fixture
+```
 
-## Uso de la GUI
+Los E2E tests no requieren LM Studio: el cliente se mockea a `resultados: []`.
 
-### Pestaña Procesamiento
+## Arquitectura
 
-- **Examinar…**: selecciona un archivo `.pdf`, `.doc` o `.docx`.
-- **Iniciar anonimización**: procesa el documento en un hilo independiente. Se muestra el progreso por chunks, bitácora y resumen final.
-- **Limpiar resumen**: limpia el panel de resultado sin afectar los logs.
-
-### Pestaña Configuración
-
-- Visualiza y edita todos los parámetros. Los campos booleanos usan checkboxes, listas (p. ej. `stop_sequences`) se editan una por línea.
-- **Guardar configuración** (persistente en `config.yaml`) y **Recargar desde archivo** para descartar cambios.
-
-### Pestaña Registros
-
-- Muestra en tiempo real los mensajes de log.
-- **Abrir carpeta de logs** abre el directorio configurado (por defecto `./logs/`).
-- **Limpiar vista** sólo afecta la visualización actual.
-
-### Pestaña Acerca de
-
-- Resumen del objetivo del proyecto y recordatorios sobre LM Studio.
-
-## Salidas
-
-- Documento anonimizado: se guarda junto al archivo original con sufijo `_anonimizado.txt`.
-- Logs estructurados:
-  - `logs/run_<timestamp>.jsonl`: entradas por chunk con métricas de duración, previews y errores.
-  - `logs/run_summary_<timestamp>.json`: resumen del proceso (estado, tiempos, rutas).
-
-En modo debug (`runtime.debug: true`) también se registran las entradas y salidas completas de cada chunk.
-
-## Resolución de problemas
-
-- **Sin conexión con LM Studio**: verificá que el servidor local esté activo (`LM Studio > Start Server`) y que la URL/clave coincidan.
-- **Dependencias faltantes**: ejecutá nuevamente `python3 -m pip install -r requirements.txt`.
-- **Errores en chunks individuales**: revisá el JSONL de la corrida y ajustá parámetros de solapamiento, contexto o reintentos desde la Configuración.
+Ver [`ARCHITECTURE.md`](ARCHITECTURE.md) para el diagrama de capas y la
+política de prioridades de detección.

@@ -299,13 +299,18 @@ Las citas son la fuente más común de falsos positivos en anonimización legal.
 
 ## PR 15 — Limpieza final
 
-- [ ] Borrar `app/legacy_monolith.py`
-- [ ] Actualizar `README.md` con la arquitectura nueva
-- [ ] Documento `ARCHITECTURE.md` con diagrama de capas
-- [ ] Tag `v1.0`
+- [x] Borrar `app/legacy_monolith.py` (1314 líneas)
+- [x] Reescribir `README.md` con la arquitectura nueva, garantías de diseño y uso GUI/CLI
+- [x] Crear `ARCHITECTURE.md` con diagrama de capas, pipeline de 13 pasos y layout
+- [x] Filtrar lock files `~$*.docx` en los tests (Word los crea al abrir un fixture)
+- [x] Tag `v1.0`
 
 **Comentarios:**
-> _vacío_
+> Decisiones clave:
+> - **Legacy borrado completo**: 1314 líneas de monolito reemplazadas por ~3500 de código modular + tests. Cero referencias residuales (verificado con grep).
+> - **README desde cero**: el viejo describía el flujo "chunk → LLM rewriter" que es exactamente lo que NO queremos. Reescrito para reflejar la filosofía B+C+determinista, las garantías estructurales y el flujo Detectar → Revisar → Aplicar de la GUI.
+> - **ARCHITECTURE.md con ASCII art**: diagrama de capas + flujo de pipeline + decisiones clave (LLM como clasificador, fail-closed, determinismo, política preserve > anonimizar).
+> - **Lock files en tests**: filtro `not p.name.startswith("~$")` en los 5 tests que glob `ejemplos/*.docx`. El usuario suele tener el fixture abierto en Word, generando lock files que rompen los tests.
 
 ---
 

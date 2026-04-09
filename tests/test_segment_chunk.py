@@ -138,7 +138,7 @@ def test_integracion_con_docx() -> None:
     from pathlib import Path
     from app.io.docx_extract import extract_runs
 
-    fixtures = sorted(Path("ejemplos").glob("*.docx"))
+    fixtures = sorted(p for p in Path("ejemplos").glob("*.docx") if not p.name.startswith("~$"))
     assert fixtures, "No hay fixtures en ejemplos/"
     doc = extract_runs(fixtures[0])
     sents = segment_sentences(doc.full_text)

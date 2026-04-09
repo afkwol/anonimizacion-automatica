@@ -14,7 +14,7 @@ from app.replace.text_replacer import Replacement, apply_replacements
 
 
 FIXTURES = Path(__file__).resolve().parent.parent / "ejemplos"
-DOCX_FILES = sorted(FIXTURES.glob("*.docx"))
+DOCX_FILES = sorted(p for p in FIXTURES.glob("*.docx") if not p.name.startswith("~$"))
 
 
 # ============================ text_replacer ==============================

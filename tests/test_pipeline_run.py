@@ -23,7 +23,7 @@ from app.detect.span import Span
 
 
 FIXTURES = Path(__file__).resolve().parent.parent / "ejemplos"
-DOCX_FILES = sorted(FIXTURES.glob("*.docx"))
+DOCX_FILES = sorted(p for p in FIXTURES.glob("*.docx") if not p.name.startswith("~$"))
 
 
 class _FakeChat:

@@ -20,6 +20,10 @@ logs/
 *_anonimizado.pdf
 *_comparacion.html
 *_FAILED.*
+*_audit.json
+
+# Word lock files (cuando un fixture está abierto en Word)
+~$*
 
 # IDE / OS / Claude Code
 .vscode/

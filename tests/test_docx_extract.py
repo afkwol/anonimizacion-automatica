@@ -15,7 +15,7 @@ def _normalize(text: str) -> str:
 from app.io.docx_extract import count_coverage, extract_runs
 
 FIXTURES = Path(__file__).resolve().parent.parent / "ejemplos"
-DOCX_FILES = sorted(FIXTURES.glob("*.docx"))
+DOCX_FILES = sorted(p for p in FIXTURES.glob("*.docx") if not p.name.startswith("~$"))
 
 
 @pytest.mark.parametrize("docx_path", DOCX_FILES, ids=lambda p: p.name)
