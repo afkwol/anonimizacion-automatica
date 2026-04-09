@@ -1,0 +1,26 @@
+{
+  "_doc": "Expectativas mínimas por fixture. Curado a mano observando los archivos. Los thresholds son MÍNIMOS: el pipeline puede detectar más, nunca menos.",
+  "fixtures": {
+    "CERAMI, JUAN JOSÉ C BANCO HIPOTECARIO SA. pro gratuidad..docx": {
+      "min_chars": 80000,
+      "min_regex_dni": 2,
+      "min_regex_cuit": 4,
+      "validation_must_pass": true,
+      "must_contain_placeholders": ["[DNI_1]", "[CUIT_1]"]
+    },
+    "DIAZ, GUILLERMO C BANCO PATAGONIA S.A. pro gratuidad.docx": {
+      "min_chars": 25000,
+      "min_regex_dni": 0,
+      "min_regex_cuit": 0,
+      "validation_must_pass": true,
+      "must_contain_placeholders": []
+    },
+    "NANZER, ANA LUCIA C- CLINICA SUCRE SRL. pro gratuidad. costas solo si hay malicia.docx": {
+      "min_chars": 40000,
+      "min_regex_dni": 0,
+      "min_regex_cuit": 0,
+      "validation_must_pass": true,
+      "must_contain_placeholders": []
+    }
+  }
+}
