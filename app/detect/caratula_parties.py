@@ -69,7 +69,7 @@ _PARTY_VS = re.compile(
         [A-ZÁÉÍÓÚÑÜ][\wÁÉÍÓÚÑÜáéíóúñü\s\.&'-]{2,120}?
     )
     \s*
-    (?:s/|S/|s\.|S\.|sobre\s+|\n|$)
+    (?:s/|S/|s\.|S\.|sobre\s+|\s-\s|\n|$)
     """,
     re.VERBOSE,
 )

@@ -1,12 +1,14 @@
-"""CLI: `python -m app <archivo.docx>`.
+"""CLI: `python -m app <archivo.docx|pdf>`.
 
 Flags:
-  --dry-run        Sólo detección, no escribe el archivo de salida.
-  --no-ner         Saltea NER (sólo regex + LLM).
-  --debug          Loglevel DEBUG.
-  --audit PATH     Path del audit JSON (default: <input>_audit.json).
-  --base-url URL   URL del servidor LM Studio.
-  --model NAME     Modelo del LLM.
+  --lite             Modo liviano (1 prompt LLM, sin NER). Para civil/laboral.
+  --dry-run          Sólo detección, no escribe el archivo de salida.
+  --no-ner           Saltea NER (sólo regex + LLM). Solo modo completo.
+  --debug            Loglevel DEBUG.
+  --audit PATH       Path del audit JSON (default: <input>_audit.json).
+  --base-url URL     URL del servidor LM Studio.
+  --model NAME       Modelo del LLM.
+  --gui              Lanzar la GUI Tkinter.
 """
 from __future__ import annotations
 
@@ -16,7 +18,6 @@ import sys
 from pathlib import Path
 
 from app.classify.lm_client import LMStudioConfig
-from app.pipeline.run import PipelineConfig, run_pipeline, write_audit_log
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
@@ -24,10 +25,11 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         prog="anonimizador",
         description="Anonimizador determinista de documentos judiciales (B+C).",
     )
-    p.add_argument("input", type=Path, nargs="?", help="Archivo .docx de entrada")
+    p.add_argument("input", type=Path, nargs="?", help="Archivo .docx o .pdf de entrada")
     p.add_argument("--gui", action="store_true", help="Lanzar la GUI Tkinter")
+    p.add_argument("--lite", action="store_true", help="Modo liviano (civil/laboral)")
     p.add_argument("--dry-run", action="store_true", help="No escribir output")
-    p.add_argument("--no-ner", action="store_true", help="Saltear NER")
+    p.add_argument("--no-ner", action="store_true", help="Saltear NER (modo completo)")
     p.add_argument("--debug", action="store_true")
     p.add_argument("--audit", type=Path, default=None, help="Path del audit JSON")
     p.add_argument("--base-url", default=None, help="URL LM Studio")
@@ -62,6 +64,41 @@ def main(argv: list[str] | None = None) -> int:
     if args.model:
         llm_cfg.model = args.model
 
+    audit_path = args.audit or args.input.with_name(args.input.stem + "_audit.json")
+
+    if args.lite:
+        return _run_lite(args, llm_cfg, audit_path)
+    else:
+        return _run_full(args, llm_cfg, audit_path)
+
+
+def _run_lite(args: argparse.Namespace, llm_cfg: LMStudioConfig, audit_path: Path) -> int:
+    """Ejecuta el pipeline liviano."""
+    from app.pipeline.run_lite import LiteConfig, run_pipeline_lite, write_audit_log
+
+    config = LiteConfig(llm_config=llm_cfg, dry_run=args.dry_run)
+    result = run_pipeline_lite(args.input, config)
+    write_audit_log(result, audit_path)
+
+    print(f"\n=== Pipeline LITE {'OK' if result.success else 'FAILED'} ({result.elapsed_s:.1f}s) ===")
+    print(f"Input:  {result.input_path}")
+    if result.output_path:
+        print(f"Output: {result.output_path}")
+    print(f"Audit:  {audit_path}")
+    print(f"\nPartes detectadas:")
+    for p in result.audit.get("parties", []):
+        src = "carátula" if p.get("from_caratula") else "LLM"
+        print(f"  {p['placeholder']:15s} {p['nombre']:<35s} rol={p['rol']:<12s} src={src}")
+    print(f"\nOcurrencias: {len(result.name_spans)} nombres + {len(result.regex_spans)} regex → {len(result.replacements)} reemplazos")
+    for k, v in result.audit.get("timings", {}).items():
+        print(f"  {k:20s} {v*1000:8.1f} ms")
+    return 0
+
+
+def _run_full(args: argparse.Namespace, llm_cfg: LMStudioConfig, audit_path: Path) -> int:
+    """Ejecuta el pipeline completo (NER + fichas + clasificación)."""
+    from app.pipeline.run import PipelineConfig, run_pipeline, write_audit_log
+
     config = PipelineConfig(
         use_ner=not args.no_ner,
         llm_config=llm_cfg,
@@ -70,8 +107,6 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     result = run_pipeline(args.input, config)
-
-    audit_path = args.audit or args.input.with_name(args.input.stem + "_audit.json")
     write_audit_log(result, audit_path)
 
     print(f"\n=== Pipeline {'OK' if result.success else 'FAILED'} ===")

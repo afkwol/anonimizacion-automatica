@@ -45,7 +45,9 @@ from app.detect.regex_detectors import detect_all as detect_regex
 from app.detect.span import Span, resolve_overlaps
 from app.detect.structure import Zone, detect_zones
 from app.io.docx_extract import DocxDocument, extract_runs
+from app.io.pdf_extract import PdfDocument, extract_pdf
 from app.replace.docx_replacer import write_anonymized_docx
+from app.replace.pdf_replacer import write_anonymized_pdf
 from app.replace.text_replacer import Replacement
 from app.validate.post_checks import ValidationReport, validate_docx_output
 
@@ -154,16 +156,34 @@ def _build_classified_replacements(
 
 
 def run_pipeline(input_path: Path, config: Optional[PipelineConfig] = None) -> PipelineResult:
-    """Ejecuta el pipeline completo sobre un .docx y devuelve el resultado."""
+    """Ejecuta el pipeline completo sobre un .docx o .pdf y devuelve el resultado."""
     config = config or PipelineConfig()
     input_path = Path(input_path)
     metrics: List[StageMetrics] = []
+    ext = input_path.suffix.lower()
 
-    # 1. Extract
+    # 1. Extract (despacho por extensión)
     t0 = time.time()
-    doc = extract_runs(input_path)
-    _stage(metrics, "extract", len(doc.runs), t0, chars=len(doc.full_text))
-    text = doc.full_text
+    pdf_doc: Optional[PdfDocument] = None
+    docx_doc: Optional[DocxDocument] = None
+    if ext == ".pdf":
+        pdf_doc = extract_pdf(input_path)
+        text = pdf_doc.full_text
+        _stage(metrics, "extract", len(pdf_doc.spans), t0, chars=len(text), format="pdf")
+        if pdf_doc.needs_ocr_pages:
+            logger.warning(
+                "Páginas con poco texto (posible scan): %s. "
+                "Considerar OCR previo con ocrmypdf.",
+                pdf_doc.needs_ocr_pages,
+            )
+    elif ext == ".docx":
+        docx_doc = extract_runs(input_path)
+        text = docx_doc.full_text
+        _stage(metrics, "extract", len(docx_doc.runs), t0, chars=len(text), format="docx")
+    else:
+        raise ValueError(
+            f"Formato no soportado: {ext}. Usar .docx o .pdf."
+        )
 
     # 2. Regex
     t0 = time.time()
@@ -250,28 +270,36 @@ def run_pipeline(input_path: Path, config: Optional[PipelineConfig] = None) -> P
     success = True
     if not config.dry_run:
         t0 = time.time()
-        output_path = input_path.with_name(input_path.stem + "_anonimizado.docx")
-        write_anonymized_docx(doc, replacements, output_path)
-        _stage(metrics, "write_docx", len(replacements), t0)
+        if pdf_doc is not None:
+            output_path = input_path.with_name(input_path.stem + "_anonimizado.pdf")
+            write_anonymized_pdf(pdf_doc, replacements, output_path)
+            _stage(metrics, "write_pdf", len(replacements), t0)
+        else:
+            assert docx_doc is not None
+            output_path = input_path.with_name(input_path.stem + "_anonimizado.docx")
+            write_anonymized_docx(docx_doc, replacements, output_path)
+            _stage(metrics, "write_docx", len(replacements), t0)
 
-        # 11. Validate
-        t0 = time.time()
-        validation = validate_docx_output(
-            input_path,
-            output_path,
-            expected_placeholders=expected_placeholders,
-        )
-        _stage(metrics, "validate", len(validation.issues), t0)
-        if not validation.passed:
-            failed_path = output_path.with_name(output_path.stem + "_FAILED.docx")
-            output_path.rename(failed_path)
-            output_path = failed_path
-            success = False
-            logger.error(
-                "Validación falló; renombrado a %s. Issues: %s",
-                failed_path,
-                [i.message for i in validation.blockers],
+        # 11. Validate (solo DOCX por ahora — PDF redaction no permite
+        # re-extract trivial para validar regex leaks).
+        if docx_doc is not None:
+            t0 = time.time()
+            validation = validate_docx_output(
+                input_path,
+                output_path,
+                expected_placeholders=expected_placeholders,
             )
+            _stage(metrics, "validate", len(validation.issues), t0)
+            if not validation.passed:
+                failed_path = output_path.with_name(output_path.stem + "_FAILED.docx")
+                output_path.rename(failed_path)
+                output_path = failed_path
+                success = False
+                logger.error(
+                    "Validación falló; renombrado a %s. Issues: %s",
+                    failed_path,
+                    [i.message for i in validation.blockers],
+                )
 
     # 12. Audit
     audit = {
