@@ -46,7 +46,12 @@ def _map_font(pdf_font_name: str) -> str:
 
 
 def _group_rects(rects: List[fitz.Rect]) -> List[List[fitz.Rect]]:
-    """Agrupa rects en la misma línea como una sola ocurrencia."""
+    """Agrupa rects de una misma ocurrencia (misma línea o línea siguiente).
+
+    search_for devuelve múltiples rects cuando el texto cruza un salto
+    de línea. Los agrupamos si están en la misma línea (adyacentes) O
+    en la línea inmediatamente siguiente (wrap de renglón).
+    """
     if not rects:
         return []
     groups: List[List[fitz.Rect]] = []
@@ -56,7 +61,10 @@ def _group_rects(rects: List[fitz.Rect]) -> List[List[fitz.Rect]]:
         height = prev.y1 - prev.y0
         same_line = abs(rect.y0 - prev.y0) < height * 0.5
         adjacent = (rect.x0 - prev.x1) < height * 2
-        if same_line and adjacent:
+        # Línea siguiente: el rect empieza donde termina el anterior (±margen).
+        next_line = (rect.y0 >= prev.y0 + height * 0.5 and
+                     rect.y0 < prev.y1 + height * 1.5)
+        if (same_line and adjacent) or next_line:
             current.append(rect)
         else:
             groups.append(current)
@@ -164,7 +172,11 @@ def write_anonymized_pdf(
         insertions: List[Tuple[fitz.Point, str, float, str]] = []
         covered: Set[Tuple[int, int, int, int]] = set()
 
-        for original_text, placeholder in text_to_placeholder.items():
+        # Procesar textos más largos primero: así la redacción más amplia
+        # cubre el área y las variantes cortas se detectan como solapadas.
+        sorted_items = sorted(text_to_placeholder.items(),
+                              key=lambda kv: len(kv[0]), reverse=True)
+        for original_text, placeholder in sorted_items:
             hits = page.search_for(original_text)
             if not hits:
                 continue
@@ -172,11 +184,21 @@ def write_anonymized_pdf(
             groups = _group_rects(hits)
 
             for group in groups:
-                key = (round(group[0].x0), round(group[0].y0),
-                       round(group[-1].x1), round(group[-1].y1))
-                if key in covered:
+                # Deduplicar: si CUALQUIER rect del grupo se solapa con
+                # alguna redacción ya registrada, saltar todo el grupo.
+                already = False
+                for rect in group:
+                    for cr in covered:
+                        if (rect.x0 < cr[2] and rect.x1 > cr[0] and
+                                rect.y0 < cr[3] and rect.y1 > cr[1]):
+                            already = True
+                            break
+                    if already:
+                        break
+                if already:
                     continue
-                covered.add(key)
+                for rect in group:
+                    covered.add((rect.x0, rect.y0, rect.x1, rect.y1))
 
                 for rect in group:
                     rects_to_blank.append(rect)
@@ -194,8 +216,12 @@ def write_anonymized_pdf(
                     fontsize = rect_height * 0.85
                     baseline_y = first_rect.y1 - rect_height * 0.15
 
-                # Ancho total del área original.
-                total_width = group[-1].x1 - group[0].x0
+                # Ancho del área para el placeholder.
+                # Para grupos multi-línea, usar solo la primera línea
+                # (el placeholder se inserta ahí).
+                first_line_rects = [r for r in group
+                                    if abs(r.y0 - first_rect.y0) < (first_rect.y1 - first_rect.y0) * 0.5]
+                total_width = first_line_rects[-1].x1 - first_line_rects[0].x0
 
                 # Placeholder + guiones para llenar (o fuente achicada).
                 padded, final_fontsize = _pad_with_dashes(

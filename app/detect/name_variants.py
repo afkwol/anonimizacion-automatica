@@ -133,10 +133,9 @@ def generate_variants(name: str) -> List[str]:
         _add(forma_invertida.upper())
         _add(forma_invertida.title())
 
-        # 4. Con tratamientos.
-        for t in _TRATAMIENTOS:
-            _add(f"{t} {forma_invertida.title()}")
-            _add(f"{t} {apellido.title()}, {nombres.title()}")
+        # 4. Tratamientos (Sr., Sra., etc.) NO se incluyen en las variantes.
+        # "Nombre Apellido" ya se busca y es substring de "Sr. Nombre Apellido",
+        # así que el tratamiento no se blanquea (es información pública).
 
         # 5. Primer nombre + apellido (si hay más de un nombre).
         nombres_parts = nombres.split()
