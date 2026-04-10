@@ -127,24 +127,32 @@ def generate_variants(name: str) -> List[str]:
         _add(forma_caratula.upper())
         _add(forma_caratula.title())
 
-        # 3. NOMBRE APELLIDO (invertido).
+        # 3. APELLIDO NOMBRE (sin coma).
+        forma_sin_coma = f"{apellido} {nombres}"
+        _add(forma_sin_coma)
+        _add(forma_sin_coma.upper())
+        _add(forma_sin_coma.title())
+
+        # 4. NOMBRE APELLIDO (invertido).
         forma_invertida = f"{nombres} {apellido}"
         _add(forma_invertida)
         _add(forma_invertida.upper())
         _add(forma_invertida.title())
 
-        # 4. Tratamientos (Sr., Sra., etc.) NO se incluyen en las variantes.
-        # "Nombre Apellido" ya se busca y es substring de "Sr. Nombre Apellido",
-        # así que el tratamiento no se blanquea (es información pública).
-
         # 5. Primer nombre + apellido (si hay más de un nombre).
         nombres_parts = nombres.split()
         if len(nombres_parts) > 1:
             primer_nombre = nombres_parts[0]
+            # Nombre Apellido (corto).
             forma_corta = f"{primer_nombre} {apellido}"
             _add(forma_corta)
             _add(forma_corta.upper())
             _add(forma_corta.title())
+            # Apellido Nombre (corto, sin coma).
+            forma_corta_inv = f"{apellido} {primer_nombre}"
+            _add(forma_corta_inv)
+            _add(forma_corta_inv.upper())
+            _add(forma_corta_inv.title())
 
     # 6. Sin acentos (para textos OCR con mala codificación).
     for v in list(variants):
@@ -200,7 +208,25 @@ def find_all_occurrences(text: str, variants: List[str]) -> List[Span]:
 
         # Búsqueda flexible: \s+ entre palabras + case-insensitive para
         # tolerar saltos de línea y diferencias de casing ("Del" vs "del").
-        pattern = r"\s+".join(re.escape(w) for w in variant.split())
+        # Tolerancia ortográfica: S opcional al final de cada palabra
+        # (FARÍAS ↔ FARÍA, común en documentos judiciales).
+        words = variant.split()
+        parts = []
+        for w in words:
+            # Separar puntuación final (coma, punto) de la palabra.
+            trail = ""
+            while w and w[-1] in ",.;:":
+                trail = w[-1] + trail
+                w = w[:-1]
+            ew = re.escape(w)
+            if len(w) > 3 and w[-1:].lower() == "s":
+                ew = ew[:-1] + ew[-1] + "?"
+            elif len(w) > 3 and w[-1:].lower() != "s":
+                ew = ew + "s?"
+            if trail:
+                ew += re.escape(trail)
+            parts.append(ew)
+        pattern = r"\s+".join(parts)
         for m in re.finditer(pattern, text, re.IGNORECASE):
             key = (m.start(), m.end())
             matched_text = m.group()

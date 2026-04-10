@@ -24,7 +24,7 @@ import requests
 class LMStudioConfig:
     base_url: str = "http://127.0.0.1:1234/v1"
     api_key: str = "lm-studio"
-    model: str = ""
+    model: str = "qwen3.5-9b"
     timeout_seconds: float = 120.0
     # Hiperparámetros — fijos por diseño para garantizar determinismo.
     temperature: float = 0.0
