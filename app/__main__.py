@@ -25,7 +25,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         prog="anonimizador",
         description="Anonimizador determinista de documentos judiciales (B+C).",
     )
-    p.add_argument("input", type=Path, nargs="?", help="Archivo .docx o .pdf de entrada")
+    p.add_argument("input", type=Path, nargs="?", help="Archivo .docx/.pdf o carpeta con varios")
     p.add_argument("--gui", action="store_true", help="Lanzar la GUI Tkinter")
     p.add_argument("--lite", action="store_true", help="Modo liviano (civil/laboral)")
     p.add_argument("--dry-run", action="store_true", help="No escribir output")
@@ -63,6 +63,71 @@ def main(argv: list[str] | None = None) -> int:
         llm_cfg.base_url = args.base_url
     if args.model:
         llm_cfg.model = args.model
+
+    # Si es carpeta, procesar todos los .pdf/.docx adentro.
+    if args.input.is_dir():
+        import time
+        from datetime import datetime
+
+        batch_dir = args.input
+        files = sorted(
+            [p for p in batch_dir.iterdir()
+             if p.suffix.lower() in (".pdf", ".docx")
+             and not p.stem.endswith("_anonimizado")]
+        )
+        if not files:
+            print(f"ERROR: no hay archivos .pdf/.docx en {batch_dir}", file=sys.stderr)
+            return 2
+
+        log_path = batch_dir / f"batch_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        print(f"Procesando {len(files)} archivos en {batch_dir}")
+        print(f"Log: {log_path}")
+
+        t_batch = time.time()
+        n_ok = 0
+        n_fail = 0
+        per_file: list[tuple[str, float, str]] = []  # (name, elapsed, status)
+
+        for i, f in enumerate(files, 1):
+            print(f"\n[{i}/{len(files)}] {f.name}")
+            audit_p = args.audit or f.with_name(f.stem + "_audit.json")
+            args.input = f
+            t0 = time.time()
+            status = "OK"
+            try:
+                rc = _run_lite(args, llm_cfg, audit_p) if args.lite else _run_full(args, llm_cfg, audit_p)
+                if rc == 0:
+                    n_ok += 1
+                else:
+                    n_fail += 1
+                    status = f"FAIL(rc={rc})"
+            except Exception as e:
+                print(f"  ERROR: {e}", file=sys.stderr)
+                n_fail += 1
+                status = f"ERROR({type(e).__name__}: {e})"
+            per_file.append((f.name, time.time() - t0, status))
+
+        total_elapsed = time.time() - t_batch
+        avg_elapsed = total_elapsed / len(files) if files else 0.0
+
+        lines = [
+            f"Batch: {batch_dir}",
+            f"Inicio:   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"Archivos: {len(files)}",
+            f"OK:       {n_ok}",
+            f"FAIL:     {n_fail}",
+            f"Tiempo total:      {total_elapsed:.2f} s",
+            f"Promedio por doc:  {avg_elapsed:.2f} s",
+            "",
+            "Detalle por archivo:",
+        ]
+        for name, elapsed, status in per_file:
+            lines.append(f"  {elapsed:7.2f}s  {status:20s}  {name}")
+        log_path.write_text("\n".join(lines), encoding="utf-8")
+
+        print(f"\n=== Batch OK: {n_ok}, FAIL: {n_fail} — {total_elapsed:.1f}s total, {avg_elapsed:.1f}s promedio ===")
+        print(f"Log guardado en: {log_path}")
+        return 0 if n_fail == 0 else 1
 
     audit_path = args.audit or args.input.with_name(args.input.stem + "_audit.json")
 

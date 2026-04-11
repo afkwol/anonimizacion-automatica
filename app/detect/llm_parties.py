@@ -32,6 +32,9 @@ las partes del proceso que deben anonimizarse.
 INCLUIR:
 - Parte actora (persona física)
 - Parte demandada (persona física, NO personas jurídicas como S.A., S.R.L.)
+- Causantes en sucesiones, declaratorias de herederos y testamentarios \
+(la persona fallecida cuyo patrimonio se reparte)
+- Herederos, legatarios y beneficiarios mencionados
 - Testigos
 - Víctimas
 - Menores mencionados
@@ -46,7 +49,7 @@ NO INCLUIR:
 - Peritos, mediadores, síndicos
 
 Devolvé SOLO un JSON válido con este formato, sin texto adicional:
-{"partes": [{"nombre": "APELLIDO, NOMBRE", "rol": "actor|demandado|testigo|victima|menor"}]}
+{"partes": [{"nombre": "APELLIDO, NOMBRE", "rol": "actor|demandado|causante|heredero|testigo|victima|menor"}]}
 
 Usá el nombre EXACTO como aparece en el documento (respetá mayúsculas, \
 acentos, comas). Si la misma persona aparece con varias formas, usá la \

@@ -208,8 +208,10 @@ def find_all_occurrences(text: str, variants: List[str]) -> List[Span]:
 
         # Búsqueda flexible: \s+ entre palabras + case-insensitive para
         # tolerar saltos de línea y diferencias de casing ("Del" vs "del").
-        # Tolerancia ortográfica: S opcional al final de cada palabra
-        # (FARÍAS ↔ FARÍA, común en documentos judiciales).
+        # Tolerancia ortográfica:
+        #   - S opcional al final de cada palabra (FARÍAS ↔ FARÍA).
+        #   - n ↔ ñ intercambiables (RODINO ↔ Rodiño, común cuando el LLM
+        #     normaliza ñ a n o cuando el OCR pierde la tilde).
         words = variant.split()
         parts = []
         for w in words:
@@ -223,6 +225,8 @@ def find_all_occurrences(text: str, variants: List[str]) -> List[Span]:
                 ew = ew[:-1] + ew[-1] + "?"
             elif len(w) > 3 and w[-1:].lower() != "s":
                 ew = ew + "s?"
+            # n ↔ ñ: aplicar después de la lógica de S para no romper el slicing.
+            ew = re.sub(r"[nNñÑ]", "[nñNÑ]", ew)
             if trail:
                 ew += re.escape(trail)
             parts.append(ew)
