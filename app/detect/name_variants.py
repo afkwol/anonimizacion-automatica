@@ -40,6 +40,23 @@ def _normalize(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+# Clases regex para tolerar vocales acentuadas y ñ/n. Usadas con IGNORECASE,
+# por eso alcanza con listar minúsculas: re de Python hace case-folding Unicode.
+_CHAR_CLASS = {
+    "a": "[aáàâä]", "e": "[eéèêë]", "i": "[iíìîï]",
+    "o": "[oóòôö]", "u": "[uúùûü]",
+    "n": "[nñ]",
+}
+
+
+def _regex_char_class(ch: str) -> str:
+    """Devuelve la clase regex para un carácter (tolerante a acentos/ñ)."""
+    base = unicodedata.normalize("NFD", ch)[0].lower()
+    if base in _CHAR_CLASS:
+        return _CHAR_CLASS[base]
+    return re.escape(ch)
+
+
 def _remove_accents(s: str) -> str:
     """Quita acentos para búsqueda tolerante."""
     nfkd = unicodedata.normalize("NFD", s)
@@ -208,10 +225,11 @@ def find_all_occurrences(text: str, variants: List[str]) -> List[Span]:
 
         # Búsqueda flexible: \s+ entre palabras + case-insensitive para
         # tolerar saltos de línea y diferencias de casing ("Del" vs "del").
-        # Tolerancia ortográfica:
-        #   - S opcional al final de cada palabra (FARÍAS ↔ FARÍA).
-        #   - n ↔ ñ intercambiables (RODINO ↔ Rodiño, común cuando el LLM
-        #     normaliza ñ a n o cuando el OCR pierde la tilde).
+        # Tolerancia ortográfica (todas aplicadas por _regex_char_class):
+        #   - vocales con/sin acento (NEHUEN ↔ Nehuén, común cuando el LLM
+        #     normaliza é a e o cuando el OCR pierde la tilde).
+        #   - n ↔ ñ (RODINO ↔ Rodiño).
+        #   - S opcional al final de palabras largas (FARÍAS ↔ FARÍA).
         words = variant.split()
         parts = []
         for w in words:
@@ -220,13 +238,17 @@ def find_all_occurrences(text: str, variants: List[str]) -> List[Span]:
             while w and w[-1] in ",.;:":
                 trail = w[-1] + trail
                 w = w[:-1]
-            ew = re.escape(w)
-            if len(w) > 3 and w[-1:].lower() == "s":
-                ew = ew[:-1] + ew[-1] + "?"
-            elif len(w) > 3 and w[-1:].lower() != "s":
-                ew = ew + "s?"
-            # n ↔ ñ: aplicar después de la lógica de S para no romper el slicing.
-            ew = re.sub(r"[nNñÑ]", "[nñNÑ]", ew)
+            # Decidir si hay que hacer s-opcional antes de mapear caracteres,
+            # porque la clase char-a-char genera segmentos multi-char.
+            body = w
+            suffix = ""
+            if len(w) > 3:
+                if w[-1:].lower() == "s":
+                    body = w[:-1]
+                    suffix = "s?"
+                else:
+                    suffix = "s?"
+            ew = "".join(_regex_char_class(ch) for ch in body) + suffix
             if trail:
                 ew += re.escape(trail)
             parts.append(ew)
