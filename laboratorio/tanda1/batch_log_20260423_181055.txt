@@ -1,0 +1,59 @@
+Batch: laboratorio\tanda1
+Inicio:   2026-04-23 18:13:16
+Archivos: 50
+OK:       50
+FAIL:     0
+Tiempo total:      140.10 s
+Promedio por doc:  2.80 s
+
+Detalle por archivo:
+     3.56s  OK                    Rehace incidente Minetti, Gladys Aurora  Minetti, Nair Rosa.pdf
+     1.00s  OK                    RehaceenautosJalon.pdf
+     0.88s  OK                    RehaceenBancodelaProvinciadeCrdobac.ClubdeEmpleados.pdf
+     6.20s  OK                    REINANTECPLANOVALOS.A.DEAHORROP-.pdf
+     2.42s  OK                    ReinaPaulaAndreacCarrefourArgentinaS.A.-Ordinario.pdf
+     3.73s  OK                    Reinintervencindeterceros.pdf
+     1.20s  OK                    ReinosoElasMaximilianoc.ParanSegurosSA.pdf
+     3.78s  OK                    RemediPabloS-68.pdf
+     2.11s  OK                    RemigioRubnA.yotra.pdf
+     4.04s  OK                    REMONDA C TRIUNFO COOPERATIVA DE SEGUROS LIMITADA 9596016 -.pdf
+     2.14s  OK                    RemorinoMaximilianoAldoR.cHipermercadoLibertadS.A..pdf
+     3.70s  OK                    Renella, Pedro A. c. Miretti, Carlos L. y otros.pdf
+     3.82s  OK                    RenellaHctorEduardocVzquezElsaAliciaReivindicacin.pdf
+     3.31s  OK                    RennellaRalcVillegasJuanManuelyotros-PVE-Alquileres.pdf
+     1.63s  OK                    RenovellFernandoF.eA.GiacomelliS.A..pdf
+     2.09s  OK                    RenovellFranciscoFcLinaresPatricio-Ejecutivo.pdf
+     2.57s  OK                    RenovellFranciscoFernandocRibasSomarDanielGustavoyotro-EjecutivoParticular.pdf
+     3.67s  OK                    Renzi Pedro Celestino c Soda Renzi S.R.L. y Otros.pdf
+     3.26s  OK                    REPARTIDORES DE KEROSENE DE YPF C. FRUTACOR TERC. DE DOMINIO DE VERAMOR.pdf
+     4.48s  OK                    REPOSSIC.MUNICIPALIDADDEALTAGRACIA.pdf
+     2.71s  OK                    RepossiJuanCarlosp.s.a.HomicidioCulposo.pdf
+     2.56s  OK                    Requena, José Luis c Sánchez, Michael Dadid.pdf
+     5.52s  OK                    Resce Juan José c. Resce Daniel Alberto - Abreviado.pdf
+     1.52s  OK                    ResgarAutomotoresc.Nevilda.pdf
+     2.71s  OK                    ResiduosPatgenosSAyOtrosc.EstadoProvincial.pdf
+     1.83s  OK                    Resk Ferrari, Noemí Liliana c. Kreiker de Lloyd, Camila.pdf
+     1.91s  OK                    Respaldo SRL c. Scalzotto - excepción de pago.confesión del acreedor.pdf
+     1.70s  OK                    RespaldoSRLc.GonzalezEulaliadelValle.pdf
+     3.90s  OK                    RestivoSergioG.c.EssoS.A..pdf
+     2.51s  OK                    ResuaErnestoE..pdf
+     4.45s  OK                    Retamoso Miguel Santos c. Alfredo SA.pdf
+     1.83s  OK                    Retamozo, Eustaquia c Mónaco, Jorge Alberto - Desalojo – Por vencimiento de término.pdf
+     1.44s  OK                    RevaneiraMarceloLuisc.CrculodeInversoresSA.pdf
+     2.75s  OK                    Revicor S.A. c. Municipalidad de Córdoba.pdf
+     1.54s  OK                    ReviglionoMoiso.pdf
+     4.43s  OK                    Revol - Vocacion hereditaria del cónyuge separado sin divorcio.pdf
+     0.76s  OK                    Revuelta, Miriam Susana c Ruben Ismael Botallo.pdf
+     1.61s  OK                    Reyeros Rafael C. c Provincia de Córdoba.pdf
+     2.21s  OK                    ReyerosRafaelC.c.ProvinciadeCrdoba.pdf
+     2.64s  OK                    Reyes Luis César S-114.pdf
+     1.48s  OK                    ReyesLuisCsarcProvinciadeCrdoba-Plenajurisdiccin.pdf
+     4.69s  OK                    Reyna, Carolina c Seguros Rivadavia.pdf
+     4.20s  OK                    REYNA, EMILIA ANGELICA c. CONIFERAL S.A. .pdf
+     1.94s  OK                    ReynafGuillermoP.c.LaAuroraS.A..pdf
+     1.62s  OK                    ReynaMaraCeciliap.s.a.infr.alart.292delCP.pdf
+     3.94s  OK                    ReynaOscarIgnacioc.CneoSebastin.pdf
+     3.64s  OK                    ReynaRaquelAidaDelHuerto.pdf
+     1.77s  OK                    ReynaRosarioc.GobiernodelaProvinciadeCrdoba.pdf
+     2.16s  OK                    ReynaRosariocGobiernodelaProvinciadeCrdoba.pdf
+     4.54s  OK                    Reynosoc.Sachs.pdf

@@ -19,6 +19,13 @@ from pathlib import Path
 
 from app.classify.lm_client import LMStudioConfig
 
+# Forzar UTF-8 en stdout/stderr para que los prints con '→' y tildes no
+# rompan cuando el proceso se lanza sin consola (Windows default cp1252).
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(

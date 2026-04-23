@@ -1,0 +1,59 @@
+Batch: laboratorio\tanda1
+Inicio:   2026-04-23 18:09:09
+Archivos: 50
+OK:       0
+FAIL:     50
+Tiempo total:      170.55 s
+Promedio por doc:  3.41 s
+
+Detalle por archivo:
+    26.47s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  Rehace incidente Minetti, Gladys Aurora  Minetti, Nair Rosa.pdf
+     1.01s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  RehaceenautosJalon.pdf
+     0.87s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  RehaceenBancodelaProvinciadeCrdobac.ClubdeEmpleados.pdf
+     6.21s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  REINANTECPLANOVALOS.A.DEAHORROP-.pdf
+     2.56s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  ReinaPaulaAndreacCarrefourArgentinaS.A.-Ordinario.pdf
+     3.73s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  Reinintervencindeterceros.pdf
+     1.20s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  ReinosoElasMaximilianoc.ParanSegurosSA.pdf
+     3.74s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  RemediPabloS-68.pdf
+     2.03s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  RemigioRubnA.yotra.pdf
+     3.99s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  REMONDA C TRIUNFO COOPERATIVA DE SEGUROS LIMITADA 9596016 -.pdf
+     2.34s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  RemorinoMaximilianoAldoR.cHipermercadoLibertadS.A..pdf
+     4.01s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  Renella, Pedro A. c. Miretti, Carlos L. y otros.pdf
+     4.51s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  RenellaHctorEduardocVzquezElsaAliciaReivindicacin.pdf
+     3.72s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  RennellaRalcVillegasJuanManuelyotros-PVE-Alquileres.pdf
+     1.72s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  RenovellFernandoF.eA.GiacomelliS.A..pdf
+     2.20s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  RenovellFranciscoFcLinaresPatricio-Ejecutivo.pdf
+     2.66s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  RenovellFranciscoFernandocRibasSomarDanielGustavoyotro-EjecutivoParticular.pdf
+     3.72s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  Renzi Pedro Celestino c Soda Renzi S.R.L. y Otros.pdf
+     3.31s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  REPARTIDORES DE KEROSENE DE YPF C. FRUTACOR TERC. DE DOMINIO DE VERAMOR.pdf
+     4.80s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  REPOSSIC.MUNICIPALIDADDEALTAGRACIA.pdf
+     2.85s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  RepossiJuanCarlosp.s.a.HomicidioCulposo.pdf
+     2.70s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  Requena, José Luis c Sánchez, Michael Dadid.pdf
+     6.24s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  Resce Juan José c. Resce Daniel Alberto - Abreviado.pdf
+     1.63s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  ResgarAutomotoresc.Nevilda.pdf
+     2.74s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  ResiduosPatgenosSAyOtrosc.EstadoProvincial.pdf
+     2.38s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  Resk Ferrari, Noemí Liliana c. Kreiker de Lloyd, Camila.pdf
+     1.85s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  Respaldo SRL c. Scalzotto - excepción de pago.confesión del acreedor.pdf
+     1.73s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  RespaldoSRLc.GonzalezEulaliadelValle.pdf
+     4.24s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  RestivoSergioG.c.EssoS.A..pdf
+     2.72s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  ResuaErnestoE..pdf
+     4.73s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  Retamoso Miguel Santos c. Alfredo SA.pdf
+     1.97s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  Retamozo, Eustaquia c Mónaco, Jorge Alberto - Desalojo – Por vencimiento de término.pdf
+     1.56s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  RevaneiraMarceloLuisc.CrculodeInversoresSA.pdf
+     2.76s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  Revicor S.A. c. Municipalidad de Córdoba.pdf
+     1.54s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  ReviglionoMoiso.pdf
+     4.50s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  Revol - Vocacion hereditaria del cónyuge separado sin divorcio.pdf
+     0.76s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  Revuelta, Miriam Susana c Ruben Ismael Botallo.pdf
+     1.63s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  Reyeros Rafael C. c Provincia de Córdoba.pdf
+     2.11s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  ReyerosRafaelC.c.ProvinciadeCrdoba.pdf
+     3.64s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  Reyes Luis César S-114.pdf
+     1.49s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  ReyesLuisCsarcProvinciadeCrdoba-Plenajurisdiccin.pdf
+     5.10s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  Reyna, Carolina c Seguros Rivadavia.pdf
+     4.33s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  REYNA, EMILIA ANGELICA c. CONIFERAL S.A. .pdf
+     2.03s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  ReynafGuillermoP.c.LaAuroraS.A..pdf
+     1.62s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  ReynaMaraCeciliap.s.a.infr.alart.292delCP.pdf
+     4.03s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  ReynaOscarIgnacioc.CneoSebastin.pdf
+     3.82s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  ReynaRaquelAidaDelHuerto.pdf
+     1.92s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  ReynaRosarioc.GobiernodelaProvinciadeCrdoba.pdf
+     2.27s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 35: character maps to <undefined>)  ReynaRosariocGobiernodelaProvinciadeCrdoba.pdf
+     4.83s  ERROR(UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 36: character maps to <undefined>)  Reynosoc.Sachs.pdf

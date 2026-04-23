@@ -238,8 +238,14 @@ def expand_variants_from_text(name: str, text: str) -> List[str]:
             continue
         pn = "".join(_regex_char_class(c) for c in primer)
         ap = "".join(_regex_char_class(c) for c in apellido)
-        # primer_nombre + 1-4 palabras intermedias (puede haber "de", "del", iniciales) + apellido
-        pattern = pn + r"(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\.]{1,25}){1,4}\s+" + ap
+        # primer_nombre + 1-4 palabras intermedias + apellido.
+        # Los tokens intermedios deben ser: (a) palabra Capitalizada (nombre propio)
+        # con >=2 chars, o (b) conector común en nombres compuestos (de/del/la/los/etc).
+        # Esto evita matches espurios como "Revol a sus hijos Alfredo".
+        # `(?-i:...)` desactiva IGNORECASE para que [A-Z] sí discrimine mayúsculas.
+        intermediate = (r"(?:(?-i:[A-ZÁÉÍÓÚÜÑ])[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\.]{1,24}"
+                        r"|de|del|la|las|los|y|e)")
+        pattern = pn + r"(?:\s+" + intermediate + r"){1,4}\s+" + ap
         for m in re.finditer(pattern, text, re.IGNORECASE):
             match = _normalize(m.group())
             if match.lower() != name_norm and len(match) > 5:
