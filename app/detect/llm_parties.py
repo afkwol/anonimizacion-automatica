@@ -145,12 +145,32 @@ def _remove_accents(s: str) -> str:
     return "".join(c for c in nfkd if unicodedata.category(c) != "Mn")
 
 
+_COMPANY_KEYWORDS = (
+    "COOPERATIVA", "MUNICIPALIDAD", "GOBIERNO", "PROVINCIA", "ESTADO",
+    "BANCO", "EMPRESA", "ASOCIACIÓN", "ASOCIACION", "FUNDACIÓN", "FUNDACION",
+    "MUTUAL", "SINDICATO", "FEDERACIÓN", "FEDERACION", "MINISTERIO",
+)
+
+
 def _is_company(name: str) -> bool:
-    """Detecta si el nombre corresponde a una persona jurídica."""
+    """Detecta si el nombre corresponde a una persona jurídica.
+
+    Heurística: termina en sufijo societario (SA, SRL, etc.) **o** contiene
+    sufijo societario embebido (PLAN OVALO S.A. DE AHORRO ...) **o** alguna
+    keyword obvia de persona jurídica.
+    """
     upper = name.upper().rstrip(".")
-    for suffix in _COMPANY_SUFFIXES_FILTER:
-        bare = suffix.rstrip(".")
-        if upper.endswith(bare) or upper.endswith(suffix):
+    # Colapsar puntos para detectar sufijos embebidos: "S.A." → "SA",
+    # "S.R.L." → "SRL". Así "PLAN OVALO S.A. DE AHORRO" → "PLAN OVALO SA DE AHORRO"
+    # y podemos buscar \bSA\b de forma confiable.
+    compact = re.sub(r"\.", "", upper)
+    bare_suffixes = {s.rstrip(".").replace(".", "") for s in _COMPANY_SUFFIXES_FILTER}
+    tokens = re.findall(r"\w+", compact)
+    if any(t in bare_suffixes for t in tokens):
+        return True
+    # Keywords típicas de persona jurídica
+    for kw in _COMPANY_KEYWORDS:
+        if re.search(r"\b" + kw + r"\b", upper):
             return True
     return False
 
