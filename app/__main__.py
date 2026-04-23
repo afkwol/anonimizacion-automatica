@@ -164,6 +164,12 @@ def _run_lite(args: argparse.Namespace, llm_cfg: LMStudioConfig, audit_path: Pat
     print(f"\nOcurrencias: {len(result.name_spans)} nombres + {len(result.regex_spans)} regex → {len(result.replacements)} reemplazos")
     for k, v in result.audit.get("timings", {}).items():
         print(f"  {k:20s} {v*1000:8.1f} ms")
+    warnings = result.audit.get("warnings", [])
+    if warnings:
+        print()
+        for w in warnings:
+            print(f"  !! {w}", file=sys.stderr)
+        return 2  # exit code 2 = procesado con warning (output sin anonimizar)
     return 0
 
 

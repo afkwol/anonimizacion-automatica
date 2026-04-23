@@ -186,6 +186,21 @@ def run_pipeline_lite(
             caratula_names.append(name)
             logger.info("Carátula agregó: %s (rol=%s)", name, rol)
 
+    # ── 2b'. Guardrail: 0 partes en doc con texto sustancial ──────
+    # Si después del LLM y la red de seguridad de carátula quedaron 0 partes
+    # pero el documento tiene texto significativo, marcar warning visible:
+    # el output podría salir SIN anonimizar y el operador no enterarse.
+    warnings: List[str] = []
+    if len(parties_llm) == 0 and len(text.strip()) > 500:
+        warning = (
+            f"GUARDRAIL: 0 partes detectadas en documento de {len(text)} chars. "
+            f"Output saldrá sin anonimizar. Revisar manualmente: la carátula "
+            f"puede no estar al inicio del PDF, o ser un fallo plenamente "
+            f"corporativo, o el LLM falló."
+        )
+        warnings.append(warning)
+        logger.warning(warning)
+
     # ── 2c. Regex ──────────────────────────────────────────────────
     t0 = time.time()
     regex_spans = detect_regex(text)
@@ -298,6 +313,7 @@ def run_pipeline_lite(
         "n_name_spans": len(all_name_spans),
         "n_regex_spans": len(regex_spans),
         "n_replacements": len(replacements),
+        "warnings": warnings,
         "timings": {k: round(v, 3) for k, v in timings.items()},
     }
 

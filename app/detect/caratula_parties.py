@@ -50,26 +50,38 @@ _CARATULA_FALLBACK = 1500
 
 
 # Patrón principal: `APELLIDO[S], NOMBRE[S] c/ DEMANDADO`.
-# - Apellido(s) en MAYÚSCULAS, posiblemente compuesto (DE LA CRUZ, VAN GOGH).
-# - Nombres en MAYÚSCULAS o Title Case.
-# - Separador `c/`, `C/`, `c.`, `C.`, `contra`, `c./`.
-# Lo extraemos en grupos para luego buscar las ocurrencias del actor y
-# del demandado por separado.
+# Acepta tanto MAYÚSCULAS como Title Case ("Reinoso, Elías Maximiliano c.").
+# Cada palabra del nombre debe empezar con mayúscula (evita capturar texto
+# de cabecera como "NOMINACIÓN DE CÓRDOBA Reinoso..."). Conectores en
+# minúscula (de/del/la/los/y) permitidos para apellidos compuestos.
+_WORD = r"(?:[A-ZÁÉÍÓÚÑÜ][\wÁÉÍÓÚÑÜáéíóúñü'`´]+|[A-ZÁÉÍÓÚÑÜ]\.)"
+_CONN = r"(?:de|del|la|las|los|y|e)"
+# Espacios horizontales (no \n) para evitar que el grupo cruce líneas
+# y termine acumulando texto de cabecera ("NOMINACIÓN DE CÓRDOBA \nReinoso").
+_HSPACE = r"[ \t]"
+_NAME_GROUP = rf"{_WORD}(?:{_HSPACE}+(?:{_CONN}|{_WORD})){{0,4}}"
+# Demandado: misma estructura que actor (admite formato APELLIDO, NOMBRE
+# para personas físicas como "Miretti, Carlos L.") O un grupo más largo
+# para personas jurídicas (Paraná Seguros SA, Plan Ovalo S.A. de Ahorro).
+_DEMANDADO_GROUP = (
+    rf"{_WORD}(?:{_HSPACE}+(?:{_CONN}|S\.A\.?|S\.R\.L\.?|S\.A\.S\.?|{_WORD})){{0,6}}"
+    rf"(?:,{_HSPACE}*{_WORD}(?:{_HSPACE}+(?:{_CONN}|{_WORD})){{0,4}})?"
+)
+
 _PARTY_VS = re.compile(
-    r"""
-    (?P<actor>
-        [A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ\s'`´]{1,80}?   # apellidos en mayúsculas
-        ,\s*
-        [A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ\s'`´]{1,80}?   # nombres en mayúsculas
+    rf"""
+    \b(?P<actor>
+        {_NAME_GROUP}
+        ,{_HSPACE}*
+        {_NAME_GROUP}
     )
-    \s+
-    (?:c/|C/|c\.|C\.|contra\s+)
-    \s*
-    (?P<demandado>
-        [A-ZÁÉÍÓÚÑÜ][\wÁÉÍÓÚÑÜáéíóúñü\s\.&'-]{2,120}?
-    )
-    \s*
-    (?:s/|S/|s\.|S\.|sobre\s+|\s-\s|\n|$)
+    {_HSPACE}+
+    (?:c/|C/|c\.|C\.|contra{_HSPACE}+)
+    {_HSPACE}*
+    (?P<demandado>{_DEMANDADO_GROUP})
+    # Terminator laxo: cualquiera de los marcadores conocidos, fin de línea,
+    # bullet, o "y otros". Lookahead para no consumir.
+    (?=[ \t]+(?:s/|S/|s\.|S\.|sobre[ \t]|y[ \t]+otros?\b|-)|[\s•·]|$)
     """,
     re.VERBOSE,
 )
@@ -88,7 +100,9 @@ def _clean_party_name(raw: str) -> str:
     """Normaliza un nombre de parte: trim, colapsa espacios, remueve
     sufijos como 'Y OTROS', 'Y OTRO' que no son parte del nombre."""
     s = re.sub(r"\s+", " ", raw).strip(" ,.;:")
-    s = re.sub(r"\s+y\s+otros?$", "", s, flags=re.IGNORECASE).strip()
+    # "y otros", "y otra", o "y" suelto al final (el regex demandado a veces
+    # los engancha porque "y" es conector permitido en nombres compuestos).
+    s = re.sub(r"\s+y(?:\s+otr[oa]s?)?$", "", s, flags=re.IGNORECASE).strip(" ,.;:")
     return s
 
 

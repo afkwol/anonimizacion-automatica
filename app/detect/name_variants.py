@@ -66,10 +66,11 @@ def _regex_char_class_in_word(ch: str, pos: int, word_len: int) -> str:
     """Como _regex_char_class, pero vocales internas de palabras largas
     son intercambiables (typo-tolerant: 'Esteban' ↔ 'Estaban').
 
-    Solo activo en palabras de >=5 chars y posición ni inicial ni final.
+    Activo en palabras de >=4 chars y posición ni inicial ni final.
+    Threshold bajo cubre typos como "Rien" ↔ "Rein" (4 chars).
     """
     base = unicodedata.normalize("NFD", ch)[0].lower()
-    if base in "aeiou" and word_len >= 5 and 0 < pos < word_len - 1:
+    if base in "aeiou" and word_len >= 4 and 0 < pos < word_len - 1:
         return _ANY_VOWEL
     if base in _CHAR_CLASS:
         return _CHAR_CLASS[base]
