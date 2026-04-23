@@ -331,7 +331,9 @@ def find_all_occurrences(text: str, variants: List[str]) -> List[Span]:
             ew = "".join(_regex_char_class_in_word(ch, i, len(body))
                          for i, ch in enumerate(body)) + suffix
             if trail:
-                ew += re.escape(trail)
+                # Permitir espacio entre la palabra y la puntuación final
+                # ("Ferrari ," ↔ "Ferrari,") y nbsp (\xa0) en ese hueco.
+                ew += r"\s*" + re.escape(trail)
             parts.append(ew)
         pattern = r"\s+".join(parts)
         for m in re.finditer(pattern, text, re.IGNORECASE):
