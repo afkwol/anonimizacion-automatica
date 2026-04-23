@@ -57,6 +57,25 @@ def _regex_char_class(ch: str) -> str:
     return re.escape(ch)
 
 
+# Clase fuzzy: cualquier vocal (acentuada o no). Se usa en posición interna
+# de palabras largas para tolerar typos comunes ("Esteban" ↔ "Estaban").
+_ANY_VOWEL = "[aeiouáéíóúàèìòùâêîôûäëïöü]"
+
+
+def _regex_char_class_in_word(ch: str, pos: int, word_len: int) -> str:
+    """Como _regex_char_class, pero vocales internas de palabras largas
+    son intercambiables (typo-tolerant: 'Esteban' ↔ 'Estaban').
+
+    Solo activo en palabras de >=5 chars y posición ni inicial ni final.
+    """
+    base = unicodedata.normalize("NFD", ch)[0].lower()
+    if base in "aeiou" and word_len >= 5 and 0 < pos < word_len - 1:
+        return _ANY_VOWEL
+    if base in _CHAR_CLASS:
+        return _CHAR_CLASS[base]
+    return re.escape(ch)
+
+
 def _remove_accents(s: str) -> str:
     """Quita acentos para búsqueda tolerante."""
     nfkd = unicodedata.normalize("NFD", s)
@@ -102,13 +121,19 @@ def generate_variants(name: str) -> List[str]:
             variants.append(v)
 
     # 0. Persona jurídica: variantes de sufijo societario (SA ↔ S.A.).
+    # El sufijo debe estar separado del resto (no "JOSE" → "JO + S.E.").
     upper = name.upper().rstrip()
     for short, dotted in _SOCIETY_VARIANTS:
-        if upper.endswith(short) or upper.endswith(dotted):
-            if upper.endswith(dotted):
-                base = name[:len(name) - len(dotted)].strip()
-            else:
-                base = name[:len(name) - len(short)].strip()
+        for suf in (dotted, short):
+            if not upper.endswith(suf):
+                continue
+            prev_idx = len(upper) - len(suf) - 1
+            # Requiere separador (espacio, coma, punto) o que sea el principio del string.
+            if prev_idx >= 0 and upper[prev_idx] not in " ,.;":
+                continue
+            base = name[:len(name) - len(suf)].rstrip(" ,.;")
+            if not base:
+                continue
             for b in (base, base.upper(), base.title()):
                 _add(f"{b} {short}")
                 _add(f"{b} {dotted}")
@@ -180,6 +205,48 @@ def generate_variants(name: str) -> List[str]:
     return variants
 
 
+def expand_variants_from_text(name: str, text: str) -> List[str]:
+    """Busca formas extendidas del nombre en el texto.
+
+    Si el LLM devolvió "VÁZQUEZ, ELSA A." y el cuerpo del documento usa
+    "Elsa Alicia Vázquez", esta función detecta esa forma completa y la
+    devuelve como variante adicional. Cubre el caso típico de "el LLM
+    devolvió la forma abreviada de la carátula y no la del cuerpo".
+
+    Heurística: <primer_nombre> (1-4 tokens intermedios) <apellido>,
+    case-insensitive y accent-insensitive vía _regex_char_class.
+    """
+    # Probar varias interpretaciones de apellido/nombre y juntar todas las extensiones.
+    interpretations: list[tuple[str, str]] = []
+    if "," in name:
+        ap_, no_ = _split_caratula_name(name)
+        interpretations.append((ap_, no_))
+    else:
+        words = name.split()
+        if len(words) >= 2:
+            interpretations.append((words[0], " ".join(words[1:])))
+            if words[-1] != words[0]:
+                interpretations.append((words[-1], " ".join(words[:-1])))
+
+    found: set[str] = set()
+    name_norm = _normalize(name).lower()
+    for apellido, nombres in interpretations:
+        # Primer nombre real: el primer token de >=3 chars (saltea iniciales como "E.")
+        nombres_tokens = [t.rstrip(".") for t in nombres.split() if t.rstrip(".")]
+        primer = next((t for t in nombres_tokens if len(t) >= 3), None)
+        if not primer or len(apellido) < 3:
+            continue
+        pn = "".join(_regex_char_class(c) for c in primer)
+        ap = "".join(_regex_char_class(c) for c in apellido)
+        # primer_nombre + 1-4 palabras intermedias (puede haber "de", "del", iniciales) + apellido
+        pattern = pn + r"(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\.]{1,25}){1,4}\s+" + ap
+        for m in re.finditer(pattern, text, re.IGNORECASE):
+            match = _normalize(m.group())
+            if match.lower() != name_norm and len(match) > 5:
+                found.add(match)
+    return sorted(found, key=len, reverse=True)
+
+
 def find_all_occurrences(text: str, variants: List[str]) -> List[Span]:
     """Busca todas las ocurrencias de las variantes en el texto.
 
@@ -248,7 +315,8 @@ def find_all_occurrences(text: str, variants: List[str]) -> List[Span]:
                     suffix = "s?"
                 else:
                     suffix = "s?"
-            ew = "".join(_regex_char_class(ch) for ch in body) + suffix
+            ew = "".join(_regex_char_class_in_word(ch, i, len(body))
+                         for i, ch in enumerate(body)) + suffix
             if trail:
                 ew += re.escape(trail)
             parts.append(ew)

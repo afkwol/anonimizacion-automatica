@@ -29,7 +29,11 @@ from typing import Dict, List, Optional
 from app.classify.lm_client import LMStudioClient, LMStudioConfig
 from app.detect.caratula_parties import detect_caratula_parties
 from app.detect.llm_parties import extract_parties
-from app.detect.name_variants import find_all_occurrences, generate_variants
+from app.detect.name_variants import (
+    expand_variants_from_text,
+    find_all_occurrences,
+    generate_variants,
+)
 from app.detect.regex_detectors import detect_all as detect_regex
 from app.detect.span import Span, resolve_overlaps
 from app.io.docx_extract import DocxDocument, extract_runs
@@ -198,6 +202,13 @@ def run_pipeline_lite(
         party_to_placeholder[nombre] = placeholder
 
         variants = generate_variants(nombre)
+        # Si el LLM dio la forma abreviada de la carátula ("VÁZQUEZ, ELSA A."),
+        # buscar en el cuerpo formas extendidas ("Elsa Alicia Vázquez") y agregarlas.
+        extra = expand_variants_from_text(nombre, text)
+        if extra:
+            logger.info("  + %d variantes extendidas detectadas en el texto: %s",
+                        len(extra), extra[:3])
+            variants.extend(extra)
         spans = find_all_occurrences(text, variants)
         # Tag spans with their placeholder.
         for s in spans:
