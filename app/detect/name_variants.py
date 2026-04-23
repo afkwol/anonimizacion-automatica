@@ -162,12 +162,19 @@ def generate_variants(name: str) -> List[str]:
     # 1. Forma original.
     _add(name)
 
+    # Variantes con coma "APELLIDO, NOMBRE" sólo si el original venía con coma.
+    # Sin esto, en listas enumeradas tipo "Alfredo Oscar Revol, Mariano Jorge Revol"
+    # la variante "REVOL, MARIANO JORGE" matchea cruzando dos personas distintas y
+    # suprime al match correcto "Alfredo Oscar Revol" en el resolver de overlaps.
+    original_has_comma = "," in name
+
     for apellido, nombres in interpretations:
-        # 2. APELLIDO, NOMBRE → varias casings.
-        forma_caratula = f"{apellido}, {nombres}"
-        _add(forma_caratula)
-        _add(forma_caratula.upper())
-        _add(forma_caratula.title())
+        # 2. APELLIDO, NOMBRE → varias casings (sólo si el original tenía coma).
+        if original_has_comma:
+            forma_caratula = f"{apellido}, {nombres}"
+            _add(forma_caratula)
+            _add(forma_caratula.upper())
+            _add(forma_caratula.title())
 
         # 3. APELLIDO NOMBRE (sin coma).
         forma_sin_coma = f"{apellido} {nombres}"
