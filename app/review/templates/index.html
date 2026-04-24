@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Revisión — {{ folder }}{% endblock %}
 {% block content %}
+<script>
+  // Chrome cachea la página completa al navegar adelante (bfcache), así que
+  // volver con "atrás" no refleja los cambios de estado. Si pageshow reporta
+  // persisted=true la página vino del cache: recargar para traer el estado nuevo.
+  window.addEventListener('pageshow', (e) => { if (e.persisted) location.reload(); });
+</script>
 <h2 style="margin-top:0;">{{ folder }}</h2>
 
 <div class="filter-bar">
