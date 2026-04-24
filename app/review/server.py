@@ -147,18 +147,23 @@ def create_app(folder: Path) -> Flask:
             abort(404)
         # Render lazy: solo cuando se abre el doc.
         _ensure_renders(folder, stem)
-        # Determinar páginas disponibles
+        # Determinar páginas disponibles y cuáles tienen anonimizado.
         cache_dir = folder / "_review_cache" / stem
-        pages = sorted({int(p.stem.split("_")[1])
-                        for p in cache_dir.glob("orig_*.png")})
-        return render_template("doc.html", entry=entry, pages=pages,
-                               folder=str(folder))
+        orig_pages = sorted({int(p.stem.split("_")[1])
+                             for p in cache_dir.glob("orig_*.png")})
+        anon_exists = (folder / f"{stem}_anonimizado.pdf").exists()
+        return render_template("doc.html", entry=entry, pages=orig_pages,
+                               anon_exists=anon_exists, folder=str(folder))
 
-    @app.route("/img/<path:stem>/<kind>/<int:page>.png")
-    def img(stem: str, kind: str, page: int):
+    @app.route("/img/<path:stem>/<kind>/<page>.png")
+    def img(stem: str, kind: str, page: str):
         if kind not in ("orig", "anon"):
             abort(400)
-        p = folder / "_review_cache" / stem / f"{kind}_{page:03d}.png"
+        try:
+            page_idx = int(page)
+        except ValueError:
+            abort(400)
+        p = folder / "_review_cache" / stem / f"{kind}_{page_idx:03d}.png"
         if not p.exists():
             abort(404)
         return send_file(str(p), mimetype="image/png")

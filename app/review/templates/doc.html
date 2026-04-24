@@ -34,16 +34,29 @@
 </details>
 {% endif %}
 
+{% if not anon_exists %}
+<div class="warn-box" style="background:#fee2e2; border-left-color:#ef4444;">
+  <strong>Sin anonimización</strong> — no existe <code>{{ entry.stem }}_anonimizado.pdf</code>.
+  El pipeline no escribió output (probablemente 0 partes detectadas). Mostrando solo el original.
+</div>
+{% endif %}
+
 <div class="pages">
   {% for p in pages %}
   <div class="page-row">
     <div>
       <h3>Página {{ p+1 }} — Original</h3>
-      <img src="/img/{{ entry.stem }}/orig/{{ '%03d' % p }}.png" loading="lazy">
+      <img src="{{ url_for('img', stem=entry.stem, kind='orig', page='%03d' % p) }}" loading="lazy">
     </div>
     <div>
       <h3>Página {{ p+1 }} — Anonimizado</h3>
-      <img src="/img/{{ entry.stem }}/anon/{{ '%03d' % p }}.png" loading="lazy">
+      {% if anon_exists %}
+      <img src="{{ url_for('img', stem=entry.stem, kind='anon', page='%03d' % p) }}" loading="lazy">
+      {% else %}
+      <div style="padding:40px; text-align:center; color:#9ca3af; border:1px dashed #d1d5db; border-radius:4px;">
+        (sin anonimizado)
+      </div>
+      {% endif %}
     </div>
   </div>
   {% endfor %}
