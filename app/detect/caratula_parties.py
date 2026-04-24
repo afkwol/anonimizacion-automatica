@@ -65,7 +65,9 @@ _NAME_GROUP = rf"{_WORD}(?:{_HSPACE}+(?:{_CONN}|{_WORD})){{0,4}}"
 # para personas jurídicas (Paraná Seguros SA, Plan Ovalo S.A. de Ahorro).
 _DEMANDADO_GROUP = (
     rf"{_WORD}(?:{_HSPACE}+(?:{_CONN}|S\.A\.?|S\.R\.L\.?|S\.A\.S\.?|{_WORD})){{0,6}}"
-    rf"(?:,{_HSPACE}*{_WORD}(?:{_HSPACE}+(?:{_CONN}|{_WORD})){{0,4}})?"
+    # Sufijo opcional ", X (suffix)?": cubre "Miretti, Carlos L." y también
+    # razones sociales tipo "Alfredo, José S.A." (sufijo S.A. después del comma group).
+    rf"(?:,{_HSPACE}*{_WORD}(?:{_HSPACE}+(?:{_CONN}|S\.A\.?|S\.R\.L\.?|S\.A\.S\.?|{_WORD})){{0,4}})?"
 )
 
 _PARTY_VS = re.compile(

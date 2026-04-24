@@ -74,9 +74,13 @@ def inspect(stem: str) -> dict:
                 if not other_tokens:
                     continue
                 # Buscar en anon: ventanas de 60 chars donde aparezca apellido + otro token
-                for m in re.finditer(re.escape(surname_no_acc), a_no_acc):
+                # Usar word boundaries para evitar falsos positivos como
+                # "fabian" matcheando dentro de "fabiano".
+                surname_re = re.compile(r"\b" + re.escape(surname_no_acc) + r"\b")
+                token_res = [re.compile(r"\b" + re.escape(t) + r"\b") for t in other_tokens]
+                for m in surname_re.finditer(a_no_acc):
                     window = a_no_acc[max(0, m.start() - 30): m.end() + 30]
-                    if any(t in window for t in other_tokens):
+                    if any(tre.search(window) for tre in token_res):
                         orphans.append({"party": pname,
                                         "surname": surname_no_acc,
                                         "context": window})
