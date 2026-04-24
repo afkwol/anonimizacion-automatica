@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ entry.stem }}{% endblock %}
+{% block header_extra %}
+<span style="color:#9ca3af; font-size:13px; margin-left:12px;">{{ entry.stem }}</span>
+{% endblock %}
+{% block content %}
+
+<div class="doc-toolbar">
+  <strong>{{ entry.stem }}</strong>
+  <span class="meta">{{ entry.n_pages }}p · {{ entry.n_parties }} partes · {{ entry.n_replacements }} reemp.</span>
+  <span class="pill {{ entry.status }}" id="status-pill">{{ entry.status }}</span>
+  <span style="flex: 1;"></span>
+  <button class="primary" onclick="setStatus('approved')">✓ Aprobar</button>
+  <button class="warning" onclick="setStatus('needs_fix')">✎ Necesita fix</button>
+  <button class="danger" onclick="setStatus('rejected')">✗ Rechazar</button>
+  <button onclick="setStatus('pending')">↺ Volver a pendiente</button>
+</div>
+
+{% if entry.warnings %}
+<div class="warn-box">
+  <strong>⚠ Warnings:</strong>
+  <ul>{% for w in entry.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+{% if entry.parties %}
+<details style="margin-bottom:16px; background:white; padding:12px; border-radius:6px;">
+  <summary style="cursor:pointer; font-weight:500;">Partes detectadas ({{ entry.parties|length }})</summary>
+  <ul style="margin:8px 0;">
+    {% for p in entry.parties %}
+      <li><code>{{ p.placeholder }}</code> ← {{ p.nombre }} <span class="meta">({{ p.rol }}, {% if p.from_caratula %}carátula{% else %}LLM{% endif %})</span></li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+
+<div class="pages">
+  {% for p in pages %}
+  <div class="page-row">
+    <div>
+      <h3>Página {{ p+1 }} — Original</h3>
+      <img src="/img/{{ entry.stem }}/orig/{{ '%03d' % p }}.png" loading="lazy">
+    </div>
+    <div>
+      <h3>Página {{ p+1 }} — Anonimizado</h3>
+      <img src="/img/{{ entry.stem }}/anon/{{ '%03d' % p }}.png" loading="lazy">
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+function setStatus(status) {
+  fetch('/api/status', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({stem: {{ entry.stem|tojson }}, status: status})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      const pill = document.getElementById('status-pill');
+      pill.className = 'pill ' + d.status;
+      pill.textContent = d.status;
+    } else {
+      alert('Error: ' + (d.error || 'desconocido'));
+    }
+  });
+}
+</script>
+{% endblock %}

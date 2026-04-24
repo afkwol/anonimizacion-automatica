@@ -314,6 +314,17 @@ def run_pipeline_lite(
         "n_regex_spans": len(regex_spans),
         "n_replacements": len(replacements),
         "warnings": warnings,
+        # Campos de observabilidad para detectar regresiones a escala.
+        "n_pages": pdf_doc.page_count if pdf_doc else 0,
+        "text_chars": len(text),
+        "model": config.llm_config.model,
+        "replacements_per_page": (
+            round(len(replacements) / pdf_doc.page_count, 2)
+            if pdf_doc and pdf_doc.page_count else 0
+        ),
+        "replacements_per_kchar": (
+            round(len(replacements) * 1000 / len(text), 2) if text else 0
+        ),
         "timings": {k: round(v, 3) for k, v in timings.items()},
     }
 

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Revisión — {{ folder }}{% endblock %}
+{% block content %}
+<h2 style="margin-top:0;">{{ folder }}</h2>
+
+<div class="filter-bar">
+  <a href="?filter=problematic" class="{{ 'active' if filt=='problematic' else '' }}">
+    Problemáticos <span class="count">({{ counts.problematic }})</span>
+  </a>
+  <a href="?filter=all" class="{{ 'active' if filt=='all' else '' }}">
+    Todos <span class="count">({{ counts.all }})</span>
+  </a>
+  <a href="?filter=pending" class="{{ 'active' if filt=='pending' else '' }}">
+    Pendientes <span class="count">({{ counts.pending }})</span>
+  </a>
+  <a href="?filter=approved" class="{{ 'active' if filt=='approved' else '' }}">
+    Aprobados <span class="count">({{ counts.approved }})</span>
+  </a>
+  <a href="?filter=needs_fix" class="{{ 'active' if filt=='needs_fix' else '' }}">
+    Necesitan fix <span class="count">({{ counts.needs_fix }})</span>
+  </a>
+  <a href="?filter=rejected" class="{{ 'active' if filt=='rejected' else '' }}">
+    Rechazados <span class="count">({{ counts.rejected }})</span>
+  </a>
+</div>
+
+{% if not entries %}
+<p style="color:#6b7280;">Nada que mostrar para este filtro.</p>
+{% else %}
+<table>
+  <thead>
+    <tr>
+      <th>Documento</th>
+      <th>Págs</th>
+      <th>Partes</th>
+      <th>Reemp.</th>
+      <th>Estado</th>
+      <th>Alertas</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for e in entries %}
+    <tr>
+      <td>
+        <a class="stem-link" href="/doc/{{ e.stem }}">{{ e.stem }}</a>
+        {% if e.parties %}
+          <div class="meta">{{ e.parties|length }} parte(s): {% for p in e.parties[:3] %}{{ p.nombre }}{% if not loop.last %}, {% endif %}{% endfor %}{% if e.parties|length > 3 %}…{% endif %}</div>
+        {% endif %}
+      </td>
+      <td>{{ e.n_pages }}</td>
+      <td>{{ e.n_parties }}</td>
+      <td>{{ e.n_replacements }}</td>
+      <td><span class="pill {{ e.status }}">{{ e.status }}</span></td>
+      <td>
+        {% if e.has_warnings %}<span class="pill warning">guardrail</span>{% endif %}
+        {% if e.n_replacements == 0 %}<span class="pill warning">0 reemp</span>{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

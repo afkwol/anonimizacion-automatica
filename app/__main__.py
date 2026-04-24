@@ -46,7 +46,15 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _parse_args(argv if argv is not None else sys.argv[1:])
+    raw = argv if argv is not None else sys.argv[1:]
+    # Subcomandos: metrics, review. Delegamos sin tocar el parser principal.
+    if raw and raw[0] == "metrics":
+        from app import metrics
+        return metrics.main(raw[1:])
+    if raw and raw[0] == "review":
+        from app.review import server
+        return server.main(raw[1:])
+    args = _parse_args(raw)
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
