@@ -1,0 +1,64 @@
+{
+  "mode": "lite",
+  "input": "laboratorio\\tanda1\\Revol - Vocacion hereditaria del cónyuge separado sin divorcio.pdf",
+  "output": "laboratorio\\tanda1\\Revol - Vocacion hereditaria del cónyuge separado sin divorcio_anonimizado.pdf",
+  "success": true,
+  "elapsed_s": 6.09,
+  "parties": [
+    {
+      "nombre": "REVOL LUIS ALFREDO",
+      "rol": "causante",
+      "placeholder": "R. L. A.",
+      "from_caratula": false
+    },
+    {
+      "nombre": "ALFREDO OSCAR REVOL",
+      "rol": "heredero",
+      "placeholder": "A. O. R.",
+      "from_caratula": false
+    },
+    {
+      "nombre": "MARIANO JORGE REVOL",
+      "rol": "heredero",
+      "placeholder": "M. J. R.",
+      "from_caratula": false
+    },
+    {
+      "nombre": "LUÍS ALEJANDRO REVOL",
+      "rol": "heredero",
+      "placeholder": "L. A. R.",
+      "from_caratula": false
+    },
+    {
+      "nombre": "INÉS REVOL",
+      "rol": "heredero",
+      "placeholder": "I. R.",
+      "from_caratula": false
+    },
+    {
+      "nombre": "BEATRIZ REVOL",
+      "rol": "heredero",
+      "placeholder": "B. R.",
+      "from_caratula": false
+    },
+    {
+      "nombre": "BERTA ILVE ARIAS",
+      "rol": "heredero",
+      "placeholder": "B. I. A.",
+      "from_caratula": false
+    }
+  ],
+  "n_name_spans": 57,
+  "n_regex_spans": 0,
+  "n_replacements": 33,
+  "warnings": [],
+  "timings": {
+    "extract": 0.06,
+    "llm_parties": 4.812,
+    "caratula": 0.0,
+    "regex": 0.061,
+    "name_search": 0.221,
+    "build_replacements": 0.0,
+    "write": 0.935
+  }
+}

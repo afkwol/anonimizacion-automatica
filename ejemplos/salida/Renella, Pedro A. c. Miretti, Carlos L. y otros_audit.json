@@ -1,0 +1,40 @@
+{
+  "mode": "lite",
+  "input": "laboratorio\\tanda1\\Renella, Pedro A. c. Miretti, Carlos L. y otros.pdf",
+  "output": "laboratorio\\tanda1\\Renella, Pedro A. c. Miretti, Carlos L. y otros_anonimizado.pdf",
+  "success": true,
+  "elapsed_s": 5.09,
+  "parties": [
+    {
+      "nombre": "OLGA CASTAÑA",
+      "rol": "demandado",
+      "placeholder": "O. C.",
+      "from_caratula": false
+    },
+    {
+      "nombre": "Renella, Pedro A",
+      "rol": "actor",
+      "placeholder": "R., P. A.",
+      "from_caratula": true
+    },
+    {
+      "nombre": "Miretti, Carlos L",
+      "rol": "demandado",
+      "placeholder": "M., C. L.",
+      "from_caratula": true
+    }
+  ],
+  "n_name_spans": 4,
+  "n_regex_spans": 1,
+  "n_replacements": 5,
+  "warnings": [],
+  "timings": {
+    "extract": 0.086,
+    "llm_parties": 4.175,
+    "caratula": 0.001,
+    "regex": 0.026,
+    "name_search": 0.132,
+    "build_replacements": 0.0,
+    "write": 0.668
+  }
+}

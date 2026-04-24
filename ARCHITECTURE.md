@@ -1,152 +1,201 @@
-# Arquitectura — Anonimizador 2.0
+# Arquitectura
 
-## Capas
+Dos pipelines conviven en el código:
+
+- **`--lite`** (recomendado, validado sobre 300+ resoluciones): un prompt al
+  LLM extrae todas las partes del proceso en una sola llamada, se validan
+  contra el texto, se reemplazan con tolerancia ortográfica. Rápido y robusto.
+- **Modo completo** (legacy, modo por defecto sin `--lite`): NER + fichas por
+  entidad + clasificador por *batch*. Más lento y menos robusto; se mantiene
+  por compatibilidad.
+
+Este documento describe el modo **`--lite`**, que es el pipeline principal.
+
+## Diagrama de capas
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  GUI (app/gui)             CLI (app/__main__.py)            │
-│  Tkinter, 4 pestañas       argparse                         │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────▼───────────────────────────────┐
-│  Orquestador  (app/pipeline/run.py)                         │
-│  extract → detect → resolve → fichas → classify → coref →  │
-│            replace → validate → audit                       │
-└─────────────────────────────────────────────────────────────┘
-       │           │             │              │         │
-       ▼           ▼             ▼              ▼         ▼
-┌──────────┐ ┌──────────┐ ┌────────────┐ ┌──────────┐ ┌──────────┐
-│   I/O    │ │  Detect  │ │  Classify  │ │  Replace │ │ Validate │
-│ docx_    │ │ regex    │ │ taxonomy   │ │ text_    │ │ post_    │
-│ extract  │ │ ner      │ │ ficha      │ │ replacer │ │ checks   │
-│          │ │ structure│ │ lm_client  │ │ docx_    │ │          │
-│          │ │ citations│ │ llm_       │ │ replacer │ │          │
-│          │ │ span     │ │ classifier │ │          │ │          │
-│          │ │          │ │ coreference│ │          │ │          │
-└──────────┘ └──────────┘ └────────────┘ └──────────┘ └──────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  CLI (app/__main__.py)                                               │
+│    python -m app --lite <archivo|carpeta>                            │
+│    python -m app metrics <carpeta>                                   │
+│    python -m app review <carpeta>                                    │
+│                                                                      │
+│  GUI (app/gui/app.py)                   Dashboard (app/review/)      │
+│    Tkinter, 4 pestañas                  Flask + Jinja, QA visual     │
+└──────────────────────────────────────────────────────────────────────┘
+                                 │
+┌────────────────────────────────▼─────────────────────────────────────┐
+│  Orquestador: app/pipeline/run_lite.py                               │
+│                                                                      │
+│    1. extract     2. llm_parties   3. caratula_parties               │
+│    4. guardrail   5. regex         6. name_search                    │
+│    7. resolve_overlaps             8. replace    9. audit            │
+└──────────────────────────────────────────────────────────────────────┘
+         │              │              │              │
+         ▼              ▼              ▼              ▼
+   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
+   │   I/O    │   │  Detect  │   │ Classify │   │ Replace  │
+   │ pdf_     │   │ llm_     │   │ lm_      │   │ pdf_     │
+   │ extract  │   │ parties  │   │ client   │   │ replacer │
+   │ docx_    │   │ caratula │   │          │   │ text_    │
+   │ extract  │   │ regex_   │   │          │   │ replacer │
+   │          │   │ detectors│   │          │   │ docx_    │
+   │          │   │ name_    │   │          │   │ replacer │
+   │          │   │ variants │   │          │   │          │
+   └──────────┘   └──────────┘   └──────────┘   └──────────┘
 ```
 
 ## Pipeline (orden estricto)
 
-1. **`extract_runs`** — abre el `.docx` como ZIP, recorre `<w:t>` en todas
-   las parts (document, headers, footers, footnotes, endnotes, comments).
-   Emite `TextRun`s con `(part, run_index, char_start, char_end)`. El
-   `full_text` es la concatenación; los offsets de cada run apuntan a él.
+1. **`extract_pdf` / `extract_runs`** — abre el archivo (PyMuPDF para PDF,
+   ZIP+XML para DOCX) y genera `full_text` + posiciones por carácter para
+   volver a mapear al layout original durante el reemplazo.
 
-2. **`detect_regex`** — DNI/CUIT/CBU/email/teléfono/patente/pasaporte con
-   checksums (mod-11 para CUIT, dos bloques BCRA para CBU).
+2. **`extract_parties`** (`app/detect/llm_parties.py`) — un único *prompt*
+   al LLM con el texto completo. Devuelve JSON con las partes a anonimizar:
 
-3. **`detect_zones`** — heurísticas estructurales: CARÁTULA, FIRMA,
-   CITA_DOCTRINA, CITA_JURISPRUDENCIA. Son priors, no veredictos.
+   ```json
+   {"partes": [{"nombre": "APELLIDO, NOMBRE", "rol": "actor"}]}
+   ```
 
-4. **`detect_citations`** — emite `Span`s concretos con `metadata.preserve=True`
-   sobre nombres de autores y causas citadas. Tipo: `AUTOR_DOCTRINA` /
-   `AUTOR_JURISPRUDENCIA`. `source="structure"` para ganar a NER en el
-   resolve.
+   Roles aceptados: `actor`, `demandado`, `causante`, `heredero`, `testigo`,
+   `victima`, `menor`. Roles **excluidos** por el prompt: jueces,
+   camaristas, fiscales, secretarios, letrados, autores de doctrina,
+   peritos oficiales, personas jurídicas.
 
-5. **`detect_entities`** (NER, opcional) — spaCy `es_core_news_md`. Sólo
-   `PER` por default. Lazy-loaded.
+   Los nombres devueltos se validan contra el texto literal (descarte de
+   alucinaciones) y se filtran contra una lista de sufijos societarios
+   (`_is_company`) para eliminar razones sociales que se hayan colado.
 
-6. **`resolve_overlaps`** — merge de spans con prioridad
-   `regex(100) > structure(80) > ner(60) > llm(40)`. En empates, gana el
-   span más largo.
+3. **`detect_caratula_parties`** (`app/detect/caratula_parties.py`) — red de
+   seguridad: busca el patrón `APELLIDO, NOMBRE c/ DEMANDADO` en la cabecera
+   del documento. Tolera mayúsculas (`REINANTE, LAUTARO NEHUEN C/ ...`),
+   *Title Case* (`Reinoso, Elías Maximiliano c. ...`), iniciales
+   (`Pedro A.`), separadores `c/`, `C/`, `c.`, `C.`, `contra`. Si el LLM
+   omitió al actor o al demandado, la carátula los agrega.
 
-7. **`build_fichas`** — para cada span no-regex y no-`preserve`, arma una
-   ficha con contexto ±200 chars, zone hint y NER type.
+4. **Guardián anti-silencio** — si después de LLM + carátula hay 0 partes
+   y el texto tiene más de 500 caracteres, se emite una alerta que queda
+   registrada en el *audit* y hace que el comando salga con código 2.
 
-8. **`LLMClassifier.classify`** — batches al LM Studio, retries con backoff.
-   Output: enum cerrado de 21 roles. Cualquier respuesta inválida →
-   `DESCONOCIDO`. Garantiza len(output) == len(input).
+5. **`detect_regex`** — DNI / CUIT (mód-11) / CBU (dos bloques BCRA) /
+   email / teléfono / patente / pasaporte. Sus *spans* obtienen prioridad
+   máxima en la resolución de solapamientos.
 
-9. **`resolve_coreference`** — agrupa fichas por apellido normalizado
-   (lowercase + sin acentos + sin títulos). Conflictos de rol se resuelven
-   por mayor confianza. Asigna placeholders estables `[PREFIX_N]`.
+6. **`find_all_occurrences`** + **`generate_variants`** + **`expand_variants_from_text`** (`app/detect/name_variants.py`) — para cada
+   parte, se generan variantes ortográficas plausibles y se buscan en el
+   texto con *regex* tolerante a:
 
-10. **`build_replacements`** — combina `Replacement`s de spans regex (con
-    counters por tipo) y de spans clasificados (con placeholders de
-    coreferencia). Ordenados, sin solapar.
+   - acentos en cualquier posición de la palabra (`Nehuén` ↔ `Nehuen`)
+   - `n` ↔ `ñ` (`Rodino` ↔ `Rodiño`)
+   - vocales internas intercambiables en palabras ≥ 4 *chars*
+     (`Esteban` ↔ `Estaban`)
+   - espacios o *non-breaking space* antes de coma final (`Ferrari ,` ↔
+     `Ferrari,`)
+   - "s" opcional al final de palabras largas (`Farías` ↔ `Faría`)
+   - nombres extendidos: si el LLM dio `VÁZQUEZ, ELSA A.` y el cuerpo usa
+     `Elsa Alicia Vázquez`, se detecta y agrega como variante adicional
 
-11. **`write_anonymized_docx`** — copia el ZIP byte-a-byte salvo en las
-    parts modificadas; en esas reescribe sólo los `<w:t>` afectados, con
-    `xml:space="preserve"` automático para whitespace.
+   Se omiten variantes con coma (`APELLIDO, NOMBRE`) cuando el nombre
+   original no venía con coma, para evitar falsos *matches* en listas
+   enumeradas tipo `Alfredo Oscar Revol, Mariano Jorge Revol, ...`.
 
-12. **`validate_docx_output`** — re-extrae el output, re-corre regex,
-    chequea ratio de longitud, integridad estructural del ZIP y presencia
-    de placeholders esperados. Si algo falla → `*_FAILED.docx`.
+7. **`resolve_overlaps`** (`app/detect/span.py`) — elimina *spans*
+   solapados por prioridad (`regex > structure > ner > llm`), luego por
+   longitud.
 
-13. **Audit JSON** — escribe `*_audit.json` con métricas por etapa,
-    coreferencia y issues de validación.
+8. **`write_anonymized_pdf` / `write_anonymized_docx`** — el *replacer*
+   identifica el rectángulo de cada ocurrencia en el archivo original,
+   lo tacha con un rectángulo blanco, y escribe el *placeholder* con
+   iniciales (`R., L. N.` para `REINANTE, LAUTARO NEHUEN`) centrado y
+   rodeado de guiones para conservar el ancho original.
+
+9. **Audit JSON** — escribe `<nombre>_audit.json` con:
+   - Partes detectadas (nombre, rol, placeholder, origen)
+   - `n_name_spans`, `n_regex_spans`, `n_replacements`
+   - `n_pages`, `text_chars`, `model`, `replacements_per_page`, `replacements_per_kchar`
+   - `warnings` del guardián anti-silencio
+   - `timings` por etapa
+
+## Módulos complementarios
+
+### `app/metrics.py`
+
+Lector de *audits* que agrega métricas sobre una carpeta procesada:
+mediana y desvío de `replacements_per_kchar`, detección de *outliers* por
+*z-score*, exportación CSV. Útil para detectar regresiones al actualizar
+el modelo o el código.
+
+### `app/review/`
+
+Servidor Flask local (`python -m app review <carpeta>`) que muestra:
+- Cola filtrable por estado (Pendiente / Aprobado / Necesita corrección /
+  Rechazado) y por origen (Requieren revisión / Todos).
+- Vista por documento con páginas renderizadas *lado a lado*
+  (original vs anonimizado).
+- Persistencia de decisiones en `_review_state.json`.
+
+Pensado para flujos humano-en-el-loop sobre lotes grandes.
 
 ## Decisiones clave
 
-### LLM como clasificador, no como reescritor
+### El LLM no reescribe texto
 
-El legacy v.5 mandaba chunks de texto al LLM y le pedía "reescribí esto
-anonimizando los nombres". Esto **es** la fuente de las alucinaciones,
-omisiones y problemas de chunkeo: el LLM puede reescribir mal, omitir, o
-inventar.
+El *prompt* pide únicamente el JSON de partes; el reemplazo físico lo hace
+código determinístico. Esto elimina la clase de errores más común en
+sistemas de anonimización basados en LLM: alucinaciones, omisiones,
+cambios de formato, introducción de errores tipográficos.
 
-En 2.0 el LLM **estructuralmente no puede** alterar texto. Recibe sólo
-una ficha (entidad + contexto + zona) y debe devolver un valor del enum.
-La sustitución la hace el código determinista en `replace/`.
+### Validación fail-closed
 
-### Fail-closed en todos los puntos de duda
+- Nombres devueltos por el LLM que no aparecen en el texto → descartados.
+- Personas jurídicas detectadas por el LLM o la carátula → filtradas antes
+  de anonimizar.
+- 0 partes detectadas en documento con texto → alerta visible + exit 2.
 
-- Rol desconocido del LLM → `DESCONOCIDO` → se anonimiza.
-- Validación post-hoc detecta filtración → archivo renombrado a `_FAILED`.
-- NER spaCy no disponible → se continúa sin NER (warning).
-- LLM HTTP error tras retries → batch entero cae a `DESCONOCIDO`.
+### Determinismo
 
-### Determinismo total
-
-`temperature=0`, `top_p=1`, `top_k=1` están hardcoded en `LMStudioConfig`.
-Dos corridas del mismo doc con el mismo modelo deben producir bytes
+`temperature=0`, `top_p=1`, `top_k=1` fijos en `LMStudioConfig`. Dos
+corridas sobre el mismo documento con el mismo modelo producen *audits*
 idénticos.
 
-### Preservar > anonimizar (cuando hay base legal)
+### Sobre-anonimizar es mejor que sub-anonimizar
 
-La política default refleja Acordadas CSJN 15/13 y 24/13: jueces, fiscales,
-secretarios, autores citados y entidades públicas NO se anonimizan. La
-política es editable desde la pestaña Configuración de la GUI.
+La expansión de variantes (acentos, ñ/n, vocales internas) prioriza no
+perder ocurrencias aún a costa de eventuales falsos positivos — el costo
+de un nombre expuesto es mucho mayor que el de una palabra tachada de
+más. Los falsos positivos son además visibles en el *dashboard* de
+revisión.
 
-## Testing
-
-- **Unit tests** por módulo (~140 tests): `tests/test_*.py`.
-- **Golden E2E** (`tests/test_pipeline_e2e.py`): corre el pipeline completo
-  con LLM mockeado contra los fixtures de `ejemplos/` y valida thresholds
-  mínimos por fixture (`tests/golden/expectations.json`).
-- **Smoke GUI**: construye la ventana sin lanzar mainloop.
-
-Total: 152 tests.
-
-## Layout
+## Layout del código
 
 ```
 app/
-├── __main__.py          # CLI entry point
+├── __main__.py              # CLI: --lite, --gui, review, metrics
+├── metrics.py               # Agregador de audits
 ├── classify/
-│   ├── coreference.py   # Agrupación + placeholders estables
-│   ├── ficha.py         # Construcción de fichas para el LLM
-│   ├── llm_classifier.py # Cliente del clasificador (Pydantic)
-│   ├── lm_client.py     # Wrapper HTTP de LM Studio
-│   └── taxonomy.py      # Enum cerrado de roles + política
+│   └── lm_client.py         # Cliente HTTP de LM Studio (determinista)
 ├── detect/
-│   ├── citations.py     # Doctrina y jurisprudencia (preserve=True)
-│   ├── ner.py           # spaCy es_core_news_md
-│   ├── regex_detectors.py # DNI/CUIT/CBU/etc con checksums
-│   ├── span.py          # Modelo común + resolve_overlaps
-│   └── structure.py     # Carátula, firma, citas (zonas)
+│   ├── caratula_parties.py  # Red de seguridad: "APELLIDO, NOMBRE c/ ..."
+│   ├── llm_parties.py       # Prompt principal + filtro de jurídicas
+│   ├── name_variants.py     # Variantes ortográficas + búsqueda flexible
+│   ├── regex_detectors.py   # DNI / CUIT / CBU / email / etc.
+│   └── span.py              # Modelo común + resolve_overlaps
 ├── gui/
-│   └── app.py           # Tkinter, 4 pestañas
+│   └── app.py               # Tkinter, para uso interactivo
 ├── io/
-│   └── docx_extract.py  # Walker de <w:t> sobre el ZIP
+│   ├── docx_extract.py      # Walker de <w:t> sobre el ZIP
+│   └── pdf_extract.py       # PyMuPDF con posiciones por span
 ├── pipeline/
-│   ├── chunk.py         # Token-budget chunking (no usado en E2E actual)
-│   ├── run.py           # Orquestador
-│   └── segment.py       # pysbd español
+│   ├── run.py               # Modo completo (legacy)
+│   └── run_lite.py          # Modo --lite (recomendado)
 ├── replace/
-│   ├── docx_replacer.py # Reemplazo in-place preservando formato
-│   └── text_replacer.py # Reemplazo sobre str plano
+│   ├── docx_replacer.py     # In-place sobre <w:t> preservando formato
+│   ├── pdf_replacer.py      # Tacha + placeholder con iniciales sobre PDF
+│   └── text_replacer.py     # Reemplazo sobre str plano
+├── review/
+│   ├── server.py            # Dashboard Flask
+│   └── templates/           # UI de revisión
 └── validate/
-    └── post_checks.py   # Gate fail-closed
+    └── post_checks.py       # Gate fail-closed (modo completo)
 ```

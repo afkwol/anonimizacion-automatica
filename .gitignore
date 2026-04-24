@@ -14,13 +14,16 @@ __pycache__/
 logs/
 *.log
 
-# Salidas de anonimización (no commitear documentos procesados)
+# Salidas de anonimización por defecto ignoradas (documentos procesados).
+# Excepción: la carpeta `ejemplos/` sí se commitea como referencia pública.
 *_anonimizado.txt
 *_anonimizado.docx
 *_anonimizado.pdf
 *_comparacion.html
 *_FAILED.*
 *_audit.json
+!ejemplos/**/*_anonimizado.pdf
+!ejemplos/**/*_audit.json
 
 # Word lock files (cuando un fixture está abierto en Word)
 ~$*
@@ -44,3 +47,6 @@ _review_state.json
 
 # Batch logs
 batch_log_*.txt
+
+# Carpeta de trabajo de desarrollo (tandas de prueba, experimentación)
+laboratorio/

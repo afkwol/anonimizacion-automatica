@@ -1,0 +1,28 @@
+{
+  "mode": "lite",
+  "input": "laboratorio\\tanda1\\REPARTIDORES DE KEROSENE DE YPF C. FRUTACOR TERC. DE DOMINIO DE VERAMOR.pdf",
+  "output": "laboratorio\\tanda1\\REPARTIDORES DE KEROSENE DE YPF C. FRUTACOR TERC. DE DOMINIO DE VERAMOR_anonimizado.pdf",
+  "success": true,
+  "elapsed_s": 4.26,
+  "parties": [
+    {
+      "nombre": "MUÑOZ LUIS ALBERTO",
+      "rol": "actor",
+      "placeholder": "M. L. A.",
+      "from_caratula": false
+    }
+  ],
+  "n_name_spans": 9,
+  "n_regex_spans": 0,
+  "n_replacements": 9,
+  "warnings": [],
+  "timings": {
+    "extract": 0.111,
+    "llm_parties": 3.785,
+    "caratula": 0.002,
+    "regex": 0.022,
+    "name_search": 0.055,
+    "build_replacements": 0.0,
+    "write": 0.287
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "mode": "lite",
+  "input": "laboratorio\\tanda1\\ReynaRaquelAidaDelHuerto.pdf",
+  "output": "laboratorio\\tanda1\\ReynaRaquelAidaDelHuerto_anonimizado.pdf",
+  "success": true,
+  "elapsed_s": 4.19,
+  "parties": [
+    {
+      "nombre": "REYNA, RAQUEL AIDA DEL HUERTO",
+      "rol": "actora",
+      "placeholder": "R., R. A. D. H.",
+      "from_caratula": false
+    },
+    {
+      "nombre": "FUENTES, DANIEL ESTEBAN",
+      "rol": "demandado",
+      "placeholder": "F., D. E.",
+      "from_caratula": false
+    }
+  ],
+  "n_name_spans": 9,
+  "n_regex_spans": 0,
+  "n_replacements": 9,
+  "warnings": [],
+  "timings": {
+    "extract": 0.065,
+    "llm_parties": 3.757,
+    "caratula": 0.0,
+    "regex": 0.012,
+    "name_search": 0.044,
+    "build_replacements": 0.0,
+    "write": 0.312
+  }
+}

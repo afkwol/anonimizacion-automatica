@@ -1,0 +1,28 @@
+{
+  "mode": "lite",
+  "input": "laboratorio\\tanda1\\REYNA, EMILIA ANGELICA c. CONIFERAL S.A. .pdf",
+  "output": "laboratorio\\tanda1\\REYNA, EMILIA ANGELICA c. CONIFERAL S.A. _anonimizado.pdf",
+  "success": true,
+  "elapsed_s": 5.0,
+  "parties": [
+    {
+      "nombre": "REYNA, EMILIA ANGELICA",
+      "rol": "actora",
+      "placeholder": "R., E. A.",
+      "from_caratula": false
+    }
+  ],
+  "n_name_spans": 6,
+  "n_regex_spans": 1,
+  "n_replacements": 7,
+  "warnings": [],
+  "timings": {
+    "extract": 0.196,
+    "llm_parties": 4.275,
+    "caratula": 0.001,
+    "regex": 0.024,
+    "name_search": 0.028,
+    "build_replacements": 0.001,
+    "write": 0.473
+  }
+}

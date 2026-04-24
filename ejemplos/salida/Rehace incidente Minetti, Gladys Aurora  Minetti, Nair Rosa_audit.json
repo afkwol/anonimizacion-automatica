@@ -1,0 +1,40 @@
+{
+  "mode": "lite",
+  "input": "laboratorio\\tanda1\\Rehace incidente Minetti, Gladys Aurora  Minetti, Nair Rosa.pdf",
+  "output": "laboratorio\\tanda1\\Rehace incidente Minetti, Gladys Aurora  Minetti, Nair Rosa_anonimizado.pdf",
+  "success": true,
+  "elapsed_s": 3.77,
+  "parties": [
+    {
+      "nombre": "GLADYS AURORA MINETTI",
+      "rol": "causante",
+      "placeholder": "G. A. M.",
+      "from_caratula": false
+    },
+    {
+      "nombre": "EMA DEL VALLE MINETTI DE GALLARDO",
+      "rol": "heredero",
+      "placeholder": "E. D. V. M. D. G.",
+      "from_caratula": false
+    },
+    {
+      "nombre": "DALIA ROSA RODINO",
+      "rol": "heredero",
+      "placeholder": "D. R. R.",
+      "from_caratula": false
+    }
+  ],
+  "n_name_spans": 15,
+  "n_regex_spans": 0,
+  "n_replacements": 15,
+  "warnings": [],
+  "timings": {
+    "extract": 0.033,
+    "llm_parties": 3.384,
+    "caratula": 0.0,
+    "regex": 0.005,
+    "name_search": 0.046,
+    "build_replacements": 0.0,
+    "write": 0.299
+  }
+}

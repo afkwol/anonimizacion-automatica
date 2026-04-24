@@ -1,0 +1,28 @@
+{
+  "mode": "lite",
+  "input": "laboratorio\\tanda1\\REINANTECPLANOVALOS.A.DEAHORROP-.pdf",
+  "output": "laboratorio\\tanda1\\REINANTECPLANOVALOS.A.DEAHORROP-_anonimizado.pdf",
+  "success": true,
+  "elapsed_s": 4.97,
+  "parties": [
+    {
+      "nombre": "REINANTE, LAUTARO NEHUEN",
+      "rol": "actor",
+      "placeholder": "R., L. N.",
+      "from_caratula": false
+    }
+  ],
+  "n_name_spans": 4,
+  "n_regex_spans": 2,
+  "n_replacements": 6,
+  "warnings": [],
+  "timings": {
+    "extract": 0.306,
+    "llm_parties": 3.128,
+    "caratula": 0.005,
+    "regex": 0.088,
+    "name_search": 0.064,
+    "build_replacements": 0.0,
+    "write": 1.381
+  }
+}

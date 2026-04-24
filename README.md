@@ -1,91 +1,296 @@
-# Anonimizador 2.0
+# Anonimizador de Resoluciones Judiciales
 
-Anonimizador determinista de documentos judiciales argentinos (Word `.docx`)
-con LLM como **clasificador** (no como reescritor) y validación fail-closed.
+Herramienta de anonimización automatizada de resoluciones judiciales argentinas
+(`.pdf`, `.docx`). Preserva los roles **públicos** del proceso (jueces, fiscales,
+secretarios, letrados, autores citados) y anonimiza los **privados** (partes,
+testigos, víctimas, menores, causantes, herederos) dejando un PDF visualmente
+equivalente al original, con los nombres tachados e iniciales como reemplazo.
 
-Diseñado para abogados que necesitan publicar jurisprudencia preservando los
-roles públicos (jueces, fiscales, autores citados) y anonimizando los privados
-(partes, testigos, letrados, peritos de parte) **sin alucinaciones, sin
-problemas de chunkeo y sin pérdida de formato**.
+El pipeline está optimizado y validado sobre resoluciones del **Poder Judicial
+de Córdoba** y del **Poder Judicial de la Nación**, pero es **flexible**: las
+reglas de anonimización pueden adaptarse a otras jurisdicciones, fueros o
+incluso dominios no jurídicos modificando el *prompt* del modelo de lenguaje y
+los listados de roles.
+
+## Tabla de contenidos
+
+- [Motivación](#motivación)
+- [Qué hace el sistema](#qué-hace-el-sistema)
+- [Resultados sobre muestras reales](#resultados-sobre-muestras-reales)
+- [Instalación](#instalación)
+- [Uso rápido](#uso-rápido)
+  - [CLI — archivo único](#cli--archivo-único)
+  - [CLI — carpeta entera (modo lote)](#cli--carpeta-entera-modo-lote)
+  - [Dashboard web de revisión](#dashboard-web-de-revisión)
+  - [Métricas agregadas](#métricas-agregadas)
+  - [Interfaz gráfica (Tkinter)](#interfaz-gráfica-tkinter)
+- [Ejemplos incluidos](#ejemplos-incluidos)
+- [Flexibilidad: adaptar a otras jurisdicciones](#flexibilidad-adaptar-a-otras-jurisdicciones)
+- [Garantías de diseño](#garantías-de-diseño)
+- [Limitaciones conocidas](#limitaciones-conocidas)
+- [Tests](#tests)
+- [Licencia](#licencia)
+
+## Motivación
+
+Publicar jurisprudencia sin datos personales es una tarea cotidiana para
+abogados, editores jurídicos y relatores judiciales. Hoy se hace manualmente:
+leer el fallo, identificar a las partes y letrados, y tachar nombre por nombre
+en un editor de PDF. En un fallo de 30 páginas con tres herederos y dos testigos
+puede demorar media hora, con riesgo de saltarse una ocurrencia.
+
+Este proyecto automatiza ese flujo manteniendo el formato visual del PDF
+original (texto tachado en negro + marcador de iniciales ocupando el mismo
+ancho) y generando un archivo de auditoría que lista qué se anonimizó y por
+qué — indispensable para poder revisar y auditar el resultado.
+
+## Qué hace el sistema
+
+Dado un PDF o DOCX de entrada, el sistema:
+
+1. **Extrae el texto** con preservación de posiciones (coordenadas de cada span
+   en el PDF original).
+2. **Detecta partes a anonimizar** mediante un modelo de lenguaje local
+   (LM Studio, por ejemplo `qwen2.5-9b-instruct`) al que se le envía el texto
+   completo y un *prompt* que define qué roles incluir/excluir.
+3. **Red de seguridad por carátula**: un detector basado en expresiones
+   regulares busca el patrón `APELLIDO, NOMBRE c/ DEMANDADO` en la cabecera
+   del documento. Si el modelo no detectó al actor, lo agrega.
+4. **Valida contra el texto**: cada nombre devuelto por el modelo se busca
+   literalmente en el documento. Los que no aparecen se descartan
+   (protección contra alucinaciones).
+5. **Expande variantes ortográficas**: cada nombre detectado se busca en
+   todas sus formas plausibles — `APELLIDO, NOMBRE`, `NOMBRE APELLIDO`, con y
+   sin acentos, con y sin ñ/n (`Rodiño` ↔ `Rodino`), tolerando vocales
+   intercambiadas por errores comunes (`Esteban` ↔ `Estaban`), con espacios
+   anómalos antes de coma (`Ferrari ,` ↔ `Ferrari,`), y expande nombres
+   abreviados (`VÁZQUEZ, ELSA A.` → `Elsa Alicia Vázquez` en el cuerpo).
+6. **Detecta identificadores numéricos** con regex verificadas por *checksum*:
+   DNI, CUIT (mód-11), CBU (dos bloques BCRA), email, teléfono, patente.
+7. **Reemplaza sobre el PDF original** usando PyMuPDF: tacha el rectángulo
+   del nombre y escribe el placeholder con iniciales (`R., L. N.` para
+   "REINANTE, LAUTARO NEHUEN") relleno con guiones para conservar el ancho.
+8. **Escribe un archivo `_audit.json`** con cada parte detectada, su placeholder,
+   origen (carátula o modelo) y métricas del procesamiento.
+9. **Emite una alerta visible** si el documento tiene texto sustancial pero
+   no se detectó ninguna parte — evita entregar un PDF sin anonimizar sin
+   que nadie se entere.
+
+El **modelo de lenguaje no reescribe texto**: sólo devuelve un JSON con los
+nombres a anonimizar. La validación fail-closed y la sustitución determinística
+garantizan que el PDF final sea predecible y reproducible.
+
+## Resultados sobre muestras reales
+
+Procesado sobre dos lotes de resoluciones reales (públicas) de los fueros
+civil/comercial, laboral y penal de la Provincia de Córdoba y Nación:
+
+| Lote | Documentos | Tasa limpia automática | Alertas (revisión humana) |
+|---|---|---|---|
+| Tanda 1 | 50 | 41/45 — 91 % | 1 |
+| Tanda 2 | 250 | 237/240 — 94,8 % | 10 |
+
+- Tiempo promedio por documento: **2,8 – 4,4 segundos** (sobre CPU de desktop,
+  depende del tamaño del modelo LLM cargado).
+- Los casos con alerta son, en su gran mayoría, situaciones donde el documento
+  no tiene carátula al inicio (por ej. transcripciones parciales) o
+  controversias entre personas jurídicas donde no hay nada que anonimizar.
+- Los residuales (4 en la tanda 1) corresponden a *typos* del documento
+  original (OCR imperfecto) o a personas citadas de pasada por el juez que el
+  modelo no identificó como parte — casos donde la asistencia humana es
+  indispensable.
+
+## Instalación
+
+Requisitos:
+
+- Python 3.10 o superior
+- [LM Studio](https://lmstudio.ai/) corriendo localmente, con un modelo de
+  instrucciones cargado (recomendado: `qwen2.5-7b-instruct` o superior)
+- Git
+
+```bash
+git clone <url-del-repo> anonimizador
+cd anonimizador
+
+python -m venv .venv
+source .venv/bin/activate             # Linux/Mac
+.venv\Scripts\activate                # Windows
+
+pip install -r requirements.txt
+```
+
+Configurar LM Studio:
+
+1. Abrir LM Studio, ir a **Developer** → **Server**.
+2. Cargar un modelo (por ejemplo `qwen2.5-7b-instruct-Q4_K_M`).
+3. Click en **Start Server** (por defecto en `http://127.0.0.1:1234`).
+
+## Uso rápido
+
+### CLI — archivo único
+
+```bash
+python -m app --lite ejemplos/entrada/Renella\ Pedro\ A.\ c.\ Miretti\,\ Carlos\ L.\ y\ otros.pdf
+```
+
+Genera al lado del archivo:
+
+- `<nombre>_anonimizado.pdf`
+- `<nombre>_audit.json` — lista de partes detectadas, reemplazos aplicados,
+  tiempo por etapa, alertas.
+
+### CLI — carpeta entera (modo lote)
+
+```bash
+python -m app --lite /ruta/a/carpeta_con_fallos/
+```
+
+Procesa todos los `.pdf` y `.docx` de la carpeta, genera un
+`batch_log_AAAAMMDD_HHMMSS.txt` con el resumen por archivo, tiempos, y
+cuáles quedaron marcados para revisión manual.
+
+### Dashboard web de revisión
+
+Para validar visualmente los resultados en lotes grandes (QA asistido por humano):
+
+```bash
+python -m app review /ruta/a/carpeta_con_fallos/
+```
+
+Abre un navegador en `http://127.0.0.1:5555` con:
+
+- Cola filtrable por estado: **Requieren revisión / Todos / Pendientes / Aprobados / Necesitan corrección / Rechazados**.
+- Vista por documento: páginas renderizadas **lado a lado** (original vs anonimizado).
+- Botones para marcar estado; persistido en `_review_state.json`.
+- Panel de ayuda con el flujo de trabajo recomendado.
+
+El filtro "Requieren revisión" prioriza documentos con alertas automáticas o
+cero reemplazos. Hay también un modo "Todos" para máxima fiabilidad cuando
+se quiere validar manualmente cada documento.
+
+### Métricas agregadas
+
+Para detectar regresiones al correr un lote nuevo:
+
+```bash
+python -m app metrics /ruta/a/carpeta_con_fallos/
+python -m app metrics /ruta/a/carpeta_con_fallos/ --outliers    # solo casos anómalos
+python -m app metrics /ruta/a/carpeta_con_fallos/ --csv stats.csv
+```
+
+Reporta: mediana y desvío de reemplazos por mil caracteres, tiempo total,
+modelo LLM usado, y marca outliers con *z-score* < –2 (densidad
+anormalmente baja que podría indicar sub-anonimización).
+
+### Interfaz gráfica (Tkinter)
+
+```bash
+python -m app --gui
+```
+
+Para uso interactivo: seleccionar archivo, detectar en modo *dry-run*, revisar
+tabla de spans detectados antes de aplicar, y editar la política
+`rol → anonimizar` según preferencia.
+
+## Ejemplos incluidos
+
+La carpeta `ejemplos/` contiene ocho resoluciones públicas representativas con
+sus anonimizaciones y *audits* generados por el sistema:
+
+| Archivo | Fuero | Caso de interés |
+|---|---|---|
+| `Renella, Pedro A. c. Miretti, Carlos L. y otros` | Civil/Comercial | Ambas partes persona física, con iniciales |
+| `Rehace incidente Minetti, Gladys Aurora...` | Civil — sucesión | Declaratoria de herederos, causantes múltiples, apellido con ñ (Rodiño) |
+| `ReyerosRafaelC.c.ProvinciadeCrdoba` | Contencioso administrativo | Persona física vs Estado provincial |
+| `REPARTIDORES DE KEROSENE DE YPF C. FRUTACOR` | Comercial | Persona jurídica vs persona jurídica — el sistema deja todo sin anonimizar (política correcta) |
+| `ReynaRaquelAidaDelHuerto` | Civil | Contiene el *typo* `Daniel Estaban` (por `Esteban`) que el sistema tolera |
+| `Revol - Vocacion hereditaria...` | Civil — sucesorio | Múltiples herederos con apellido común en lista enumerada |
+| `REYNA, EMILIA ANGELICA c. CONIFERAL S.A.` | Laboral | Actor persona física vs razón social |
+| `REINANTECPLANOVALOS.A.DEAHORROP-` | Consumidor | Expediente largo (162 p.), demandada con nombre corporativo embebido |
+
+Las entradas están en `ejemplos/entrada/` y las salidas en `ejemplos/salida/`.
+
+## Flexibilidad: adaptar a otras jurisdicciones
+
+El comportamiento está concentrado en dos lugares editables:
+
+1. **El prompt del modelo** — en [`app/detect/llm_parties.py`](app/detect/llm_parties.py),
+   constante `_SYSTEM_PROMPT`. Controla qué roles se consideran a anonimizar
+   (actor, demandado, testigo, víctima, causante, heredero, menor) y cuáles
+   se preservan (jueces, letrados, fiscales, peritos oficiales, autores de
+   doctrina). Para adaptarlo a un fuero especializado (p.ej. **familia** —
+   anonimizar a todos los menores siempre; **penal de menores** — anonimizar
+   al imputado) alcanza con editar las listas `INCLUIR` / `NO INCLUIR`.
+
+2. **El detector de carátula** — en
+   [`app/detect/caratula_parties.py`](app/detect/caratula_parties.py), la
+   expresión `_PARTY_VS`. Hoy tolera las variantes del PJ Córdoba y Nación
+   (`c/`, `c.`, `C/`, `contra`, con y sin `s/` al final, en mayúsculas o
+   *Title Case*). Para otro tribunal con formato distinto (p.ej. tribunales
+   provinciales con separador `vs.`, o carátulas que arrancan con número de
+   expediente) se agregan las alternativas al *regex*.
+
+Los filtros de persona jurídica
+([`_COMPANY_SUFFIXES_FILTER`](app/detect/llm_parties.py)) también son
+editables — por ejemplo para incluir "Fundación", "ONG" u otras formas
+societarias locales.
 
 ## Garantías de diseño
 
-- **El LLM no puede alterar texto.** Recibe sólo "fichas" (entidad + ±200
-  caracteres de contexto) y devuelve un rol del enum cerrado. Cualquier
-  respuesta fuera del enum cae en `DESCONOCIDO` → se anonimiza (fail-closed).
-- **Identificadores numéricos vía regex con checksum.** DNI, CUIT (mod-11),
-  CBU (dos bloques BCRA), email, teléfono, patente, pasaporte. No pasan por
-  el LLM: van directo a anonimización.
-- **Formato preservado.** El reemplazo se hace in-place sobre los `<w:t>` del
-  XML del DOCX, copiando byte-a-byte las parts no modificadas. Negritas,
-  fuentes, numeración, headers, footers, footnotes — todo intacto.
-- **Determinismo total.** `temperature=0`, `top_p=1`, `top_k=1` hardcoded.
-- **Validación post-hoc bloqueante.** Re-corre los regex sobre el output;
-  si filtra cualquier identificador, el archivo se renombra a
-  `*_FAILED.docx` y NO se entrega.
-- **Citas de doctrina y jurisprudencia preservadas.** Detector dedicado
-  (`CSJN`, `Fallos:`, `"X c/ Y"`, `ver doctrina de NOMBRE`, `conf. NOMBRE`,
-  patrón `APELLIDO, ..., AÑO`) marca autores como `preserve=True` antes de
-  llegar al LLM.
-- **Coreferencia estable.** El mismo apellido recibe el mismo placeholder
-  (`[ACTOR_1]`, `[TESTIGO_2]`) en todo el documento.
+- **El modelo de lenguaje no puede reescribir el documento**. Sólo devuelve un
+  JSON con nombres a anonimizar. El reemplazo físico se hace con
+  sustitución determinística.
+- **Validación fail-closed contra el texto**. Cualquier nombre devuelto por
+  el modelo que no aparezca literalmente en el documento se descarta.
+- **Determinismo total**. `temperature=0`, `top_p=1`, `top_k=1` hardcoded.
+  Pasar el mismo documento dos veces produce el mismo resultado.
+- **Preservación del formato**. El PDF de salida conserva fuentes, márgenes,
+  numeración de páginas, cabeceras y encabezados — sólo los rectángulos de
+  los nombres cambian.
+- **Auditabilidad**. Cada ejecución genera un `_audit.json` con cada parte
+  detectada, su origen (modelo o detector de carátula), placeholder asignado,
+  y alertas del guardián.
+- **Guardián anti-silencio**. Si tras la detección quedan 0 partes en un
+  documento con texto significativo (> 500 caracteres), el sistema emite una
+  alerta visible y marca el archivo para revisión humana.
 
-## Requisitos
+## Limitaciones conocidas
 
-- Python 3.10+
-- LM Studio con un modelo cargado y servidor local activo
-- Dependencias: `pip install -e .[ner,dev]`
-- spaCy NER (opcional): `python -m spacy download es_core_news_md`
+- **Dependencia del modelo de lenguaje local**. La calidad del detector
+  depende del modelo cargado en LM Studio. Modelos muy pequeños (< 3 B
+  parámetros) pierden recall. Modelos *reasoning* (qwen3-r1, deepseek-r1)
+  gastan tokens en el razonamiento interno; si se usan, subir `max_tokens`
+  a 16 384 o más.
 
-## Uso
+- **Documentos escaneados sin OCR**. El sistema extrae texto con PyMuPDF; si
+  el PDF es imagen pura (fotocopia sin capa de texto) no detecta nada. Usar
+  OCR previo (Adobe Acrobat, Tesseract) antes de procesar.
 
-### GUI
+- **Carátulas truncadas o atípicas**. Si el PDF no empieza con la forma
+  `APELLIDO, NOMBRE c/ ...` y el modelo tampoco detecta a las partes,
+  el documento se marca con alerta pero sale sin anonimizar. Casos típicos:
+  copias parciales de resoluciones, transcripciones de audiencias, artículos
+  de doctrina. El dashboard muestra estas alertas al tope para revisión
+  manual.
 
-```
-run_anonimizador.bat        # Windows
-python -m app --gui         # cualquier plataforma
-```
+- **Personas mencionadas una sola vez**. Cuando un nombre aparece exactamente
+  una vez en todo el documento (p. ej. un heredero nombrado sólo en la
+  carátula), el modelo a veces no lo incluye porque no tiene suficiente
+  contexto. La red de seguridad por carátula mitiga esto pero no lo elimina.
 
-Flujo de la GUI:
-
-1. **Procesamiento** — elegí el `.docx`, click en **1. Detectar (dry-run)**.
-2. **Revisión** — tabla de spans detectados con su rol asignado y un toggle
-   "anonimizar". Doble clic para alternar entradas individuales.
-3. **Configuración** — política `Role → anonimizar (bool)`. Editable.
-4. **Aplicar y validar** (vuelta a Procesamiento) — escribe el archivo final
-   y corre el gate de validación.
-5. **Auditoría** — JSON con todo lo que pasó por etapa.
-
-### CLI
-
-```bash
-python -m app archivo.docx                          # full pipeline
-python -m app --dry-run --no-ner archivo.docx       # solo detección, sin spaCy
-python -m app --base-url http://192.168.1.10:1234/v1 archivo.docx
-```
-
-Genera dos archivos al lado del input:
-- `archivo_anonimizado.docx` (o `_FAILED.docx` si la validación falla)
-- `archivo_audit.json`
-
-## Configuración de LM Studio
-
-LM Studio acepta `response_format: text` (no `json_object`). El cliente lo
-maneja transparente. Si tu modelo es **reasoning** (qwen3, deepseek-r1), subí
-`max_tokens` ≥ 16384 — el modelo gasta tokens en `reasoning_content` antes
-del `content`. Lo más simple: cargá un instruct model (qwen2.5-instruct,
-llama-3-instruct, granite-3-instruct).
+- **Typos de consonantes**. La tolerancia a *typos* cubre vocales intercambiadas
+  (`Esteban` ↔ `Estaban`) pero no consonantes (`David` ↔ `Dadid`) para
+  evitar falsos positivos.
 
 ## Tests
 
 ```bash
-pytest -q                                  # 152 tests, todo mockeado
-pytest tests/test_pipeline_e2e.py -v       # golden por fixture
+pytest -q --ignore=tests/test_segment_chunk.py
 ```
 
-Los E2E tests no requieren LM Studio: el cliente se mockea a `resultados: []`.
+142 tests, independientes del modelo LLM (cliente mockeado).
 
-## Arquitectura
+## Licencia
 
-Ver [`ARCHITECTURE.md`](ARCHITECTURE.md) para el diagrama de capas y la
-política de prioridades de detección.
+MIT — ver [`LICENSE`](LICENSE).
