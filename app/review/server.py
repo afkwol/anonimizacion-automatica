@@ -29,6 +29,15 @@ logger = logging.getLogger(__name__)
 
 STATUSES = ("pending", "approved", "rejected", "needs_fix")
 
+# Etiquetas visibles en castellano. El código interno se mantiene en inglés
+# para estabilidad del archivo de estado.
+STATUS_LABELS = {
+    "pending": "Pendiente",
+    "approved": "Aprobado",
+    "rejected": "Rechazado",
+    "needs_fix": "Necesita corrección",
+}
+
 
 @dataclass
 class DocEntry:
@@ -117,6 +126,8 @@ def create_app(folder: Path) -> Flask:
     folder = folder.resolve()
     app = Flask(__name__, template_folder=str(Path(__file__).parent / "templates"))
     app.config["FOLDER"] = folder
+    # Expone los labels a todos los templates sin tener que pasarlos en cada render.
+    app.jinja_env.globals["STATUS_LABELS"] = STATUS_LABELS
 
     @app.route("/")
     def index():

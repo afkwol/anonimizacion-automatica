@@ -1,61 +1,75 @@
 {% extends "base.html" %}
 {% block title %}{{ entry.stem }}{% endblock %}
 {% block header_extra %}
-<span style="color:#9ca3af; font-size:13px; margin-left:12px;">{{ entry.stem }}</span>
+<span class="doc-breadcrumb">{{ entry.stem }}</span>
 {% endblock %}
 {% block content %}
 
 <div class="doc-toolbar">
-  <strong>{{ entry.stem }}</strong>
-  <span class="meta">{{ entry.n_pages }}p · {{ entry.n_parties }} partes · {{ entry.n_replacements }} reemp.</span>
-  <span class="pill {{ entry.status }}" id="status-pill">{{ entry.status }}</span>
-  <span style="flex: 1;"></span>
-  <button class="primary" onclick="setStatus('approved')">✓ Aprobar</button>
-  <button class="warning" onclick="setStatus('needs_fix')">✎ Necesita fix</button>
-  <button class="danger" onclick="setStatus('rejected')">✗ Rechazar</button>
-  <button onclick="setStatus('pending')">↺ Volver a pendiente</button>
+  <div class="toolbar-info">
+    <strong>{{ entry.stem }}</strong>
+    <span class="meta">{{ entry.n_pages }} pág. · {{ entry.n_parties }} partes · {{ entry.n_replacements }} reempl.</span>
+    <span class="pill {{ entry.status }}" id="status-pill">{{ STATUS_LABELS[entry.status] }}</span>
+  </div>
+  <div class="toolbar-actions">
+    <button class="btn-approve" onclick="setStatus('approved')" title="Marcar como correcto y apto para entregar">✓ Aprobar</button>
+    <button class="btn-fix" onclick="setStatus('needs_fix')" title="Hay nombres sin tachar o errores que necesitan arreglo manual">✎ Necesita corrección</button>
+    <button class="btn-reject" onclick="setStatus('rejected')" title="Descartar este documento">✗ Rechazar</button>
+    <button class="btn-reset" onclick="setStatus('pending')" title="Volver al estado no revisado">↺ Pendiente</button>
+  </div>
 </div>
 
 {% if entry.warnings %}
 <div class="warn-box">
-  <strong>⚠ Warnings:</strong>
+  <strong>⚠ Alertas del sistema:</strong>
   <ul>{% for w in entry.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
 </div>
 {% endif %}
 
+{% if not anon_exists %}
+<div class="warn-box warn-box-red">
+  <strong>Sin archivo anonimizado.</strong>
+  No se generó <code>{{ entry.stem }}_anonimizado.pdf</code> (el sistema no detectó partes a tachar).
+  Se muestra solamente el documento original. Si el original contiene datos personales, debe anonimizarse manualmente o reprocesarse con intervención.
+</div>
+{% endif %}
+
 {% if entry.parties %}
-<details style="margin-bottom:16px; background:white; padding:12px; border-radius:6px;">
-  <summary style="cursor:pointer; font-weight:500;">Partes detectadas ({{ entry.parties|length }})</summary>
-  <ul style="margin:8px 0;">
-    {% for p in entry.parties %}
-      <li><code>{{ p.placeholder }}</code> ← {{ p.nombre }} <span class="meta">({{ p.rol }}, {% if p.from_caratula %}carátula{% else %}LLM{% endif %})</span></li>
-    {% endfor %}
-  </ul>
+<details class="parties-panel">
+  <summary>Partes detectadas ({{ entry.parties|length }})</summary>
+  <table class="parties-table">
+    <thead><tr><th>Marcador</th><th>Nombre real</th><th>Rol</th><th>Origen</th></tr></thead>
+    <tbody>
+      {% for p in entry.parties %}
+        <tr>
+          <td><code>{{ p.placeholder }}</code></td>
+          <td>{{ p.nombre }}</td>
+          <td>{{ p.rol }}</td>
+          <td>{% if p.from_caratula %}carátula{% else %}modelo de lenguaje{% endif %}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </details>
 {% endif %}
 
-{% if not anon_exists %}
-<div class="warn-box" style="background:#fee2e2; border-left-color:#ef4444;">
-  <strong>Sin anonimización</strong> — no existe <code>{{ entry.stem }}_anonimizado.pdf</code>.
-  El pipeline no escribió output (probablemente 0 partes detectadas). Mostrando solo el original.
+<div class="pages-guide">
+  <span>Comparación página por página · izquierda = original · derecha = anonimizado</span>
 </div>
-{% endif %}
 
 <div class="pages">
   {% for p in pages %}
   <div class="page-row">
     <div>
-      <h3>Página {{ p+1 }} — Original</h3>
+      <h3>Página {{ p+1 }} · Original</h3>
       <img src="{{ url_for('img', stem=entry.stem, kind='orig', page='%03d' % p) }}" loading="lazy">
     </div>
     <div>
-      <h3>Página {{ p+1 }} — Anonimizado</h3>
+      <h3>Página {{ p+1 }} · Anonimizado</h3>
       {% if anon_exists %}
       <img src="{{ url_for('img', stem=entry.stem, kind='anon', page='%03d' % p) }}" loading="lazy">
       {% else %}
-      <div style="padding:40px; text-align:center; color:#9ca3af; border:1px dashed #d1d5db; border-radius:4px;">
-        (sin anonimizado)
-      </div>
+      <div class="anon-missing">(sin anonimizado)</div>
       {% endif %}
     </div>
   </div>
@@ -63,6 +77,7 @@
 </div>
 
 <script>
+const STATUS_LABELS = {{ STATUS_LABELS|tojson }};
 function setStatus(status) {
   fetch('/api/status', {
     method: 'POST',
@@ -72,11 +87,11 @@ function setStatus(status) {
     if (d.ok) {
       const pill = document.getElementById('status-pill');
       pill.className = 'pill ' + d.status;
-      pill.textContent = d.status;
+      pill.textContent = STATUS_LABELS[d.status] || d.status;
     } else {
-      alert('Error: ' + (d.error || 'desconocido'));
+      alert('Error al guardar: ' + (d.error || 'desconocido'));
     }
-  });
+  }).catch(err => alert('Error de red: ' + err));
 }
 </script>
 {% endblock %}

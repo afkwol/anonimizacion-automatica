@@ -7,39 +7,66 @@
   // persisted=true la página vino del cache: recargar para traer el estado nuevo.
   window.addEventListener('pageshow', (e) => { if (e.persisted) location.reload(); });
 </script>
-<h2 style="margin-top:0;">{{ folder }}</h2>
 
-<div class="filter-bar">
+<h2 class="folder-title">{{ folder }}</h2>
+
+<details class="help-panel" {% if not entries|selectattr('status', 'equalto', 'approved')|list %}open{% endif %}>
+  <summary>¿Cómo usar este panel? <span class="hint">(clic para expandir)</span></summary>
+  <div class="help-body">
+    <ol>
+      <li><strong>Filtrá los casos con más riesgo</strong> usando el botón <em>“Requieren revisión”</em>: muestra documentos donde el sistema detectó algo raro (0 reemplazos, alertas automáticas).</li>
+      <li><strong>Hacé clic en un documento</strong> para abrir la comparación página por página: a la izquierda el original, a la derecha el anonimizado.</li>
+      <li>Una vez revisado, marcalo con uno de los botones de la barra superior:
+        <ul>
+          <li><span class="pill approved">Aprobado</span> — anonimización correcta, apto para entregar.</li>
+          <li><span class="pill needs_fix">Necesita corrección</span> — hay nombres sin tachar o placeholders mal ubicados; requiere retoque manual.</li>
+          <li><span class="pill rejected">Rechazado</span> — no sirve (p. ej. anonimizó jurídicas por error, o el PDF original estaba corrupto).</li>
+          <li><span class="pill pending">Pendiente</span> — aún no revisado.</li>
+        </ul>
+      </li>
+      <li>Si querés revisar absolutamente todo (<em>máxima fiabilidad</em>), usá el filtro <em>“Todos”</em> y recorrelos de a uno.</li>
+      <li>El estado se guarda automáticamente en <code>{{ folder }}/_review_state.json</code>. Podés cerrar el navegador y retomar después.</li>
+    </ol>
+  </div>
+</details>
+
+<div class="filter-bar" role="navigation" aria-label="Filtros">
   <a href="?filter=problematic" class="{{ 'active' if filt=='problematic' else '' }}">
-    Problemáticos <span class="count">({{ counts.problematic }})</span>
+    Requieren revisión <span class="count">{{ counts.problematic }}</span>
   </a>
   <a href="?filter=all" class="{{ 'active' if filt=='all' else '' }}">
-    Todos <span class="count">({{ counts.all }})</span>
+    Todos <span class="count">{{ counts.all }}</span>
   </a>
+  <span class="filter-sep"></span>
   <a href="?filter=pending" class="{{ 'active' if filt=='pending' else '' }}">
-    Pendientes <span class="count">({{ counts.pending }})</span>
+    Pendientes <span class="count">{{ counts.pending }}</span>
   </a>
   <a href="?filter=approved" class="{{ 'active' if filt=='approved' else '' }}">
-    Aprobados <span class="count">({{ counts.approved }})</span>
+    Aprobados <span class="count">{{ counts.approved }}</span>
   </a>
   <a href="?filter=needs_fix" class="{{ 'active' if filt=='needs_fix' else '' }}">
-    Necesitan fix <span class="count">({{ counts.needs_fix }})</span>
+    Necesitan corrección <span class="count">{{ counts.needs_fix }}</span>
   </a>
   <a href="?filter=rejected" class="{{ 'active' if filt=='rejected' else '' }}">
-    Rechazados <span class="count">({{ counts.rejected }})</span>
+    Rechazados <span class="count">{{ counts.rejected }}</span>
   </a>
 </div>
 
 {% if not entries %}
-<p style="color:#6b7280;">Nada que mostrar para este filtro.</p>
+  <div class="empty-state">
+    <p>No hay documentos para este filtro.</p>
+    {% if filt == 'problematic' %}
+      <p class="hint">¡Buena noticia! El sistema no detectó casos que requieran revisión automática. Igualmente podés entrar a <a href="?filter=all">Todos</a> si querés validar manualmente cada uno.</p>
+    {% endif %}
+  </div>
 {% else %}
 <table>
   <thead>
     <tr>
       <th>Documento</th>
-      <th>Págs</th>
-      <th>Partes</th>
-      <th>Reemp.</th>
+      <th title="Cantidad de páginas del PDF">Págs.</th>
+      <th title="Personas/entidades detectadas por el sistema">Partes</th>
+      <th title="Cantidad total de reemplazos aplicados al texto">Reempl.</th>
       <th>Estado</th>
       <th>Alertas</th>
     </tr>
@@ -50,16 +77,16 @@
       <td>
         <a class="stem-link" href="/doc/{{ e.stem }}">{{ e.stem }}</a>
         {% if e.parties %}
-          <div class="meta">{{ e.parties|length }} parte(s): {% for p in e.parties[:3] %}{{ p.nombre }}{% if not loop.last %}, {% endif %}{% endfor %}{% if e.parties|length > 3 %}…{% endif %}</div>
+          <div class="meta">{{ e.parties|length }} parte{{ 's' if e.parties|length != 1 else '' }}: {% for p in e.parties[:3] %}{{ p.nombre }}{% if not loop.last %}, {% endif %}{% endfor %}{% if e.parties|length > 3 %} …{% endif %}</div>
         {% endif %}
       </td>
       <td>{{ e.n_pages }}</td>
       <td>{{ e.n_parties }}</td>
       <td>{{ e.n_replacements }}</td>
-      <td><span class="pill {{ e.status }}">{{ e.status }}</span></td>
+      <td><span class="pill {{ e.status }}">{{ STATUS_LABELS[e.status] }}</span></td>
       <td>
-        {% if e.has_warnings %}<span class="pill warning">guardrail</span>{% endif %}
-        {% if e.n_replacements == 0 %}<span class="pill warning">0 reemp</span>{% endif %}
+        {% if e.has_warnings %}<span class="pill warning" title="El sistema pidió revisión manual para este documento">Revisión manual</span>{% endif %}
+        {% if e.n_replacements == 0 and not e.has_warnings %}<span class="pill warning">0 reemplazos</span>{% endif %}
       </td>
     </tr>
   {% endfor %}

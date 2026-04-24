@@ -193,10 +193,11 @@ def run_pipeline_lite(
     warnings: List[str] = []
     if len(parties_llm) == 0 and len(text.strip()) > 500:
         warning = (
-            f"GUARDRAIL: 0 partes detectadas en documento de {len(text)} chars. "
-            f"Output saldrá sin anonimizar. Revisar manualmente: la carátula "
-            f"puede no estar al inicio del PDF, o ser un fallo plenamente "
-            f"corporativo, o el LLM falló."
+            f"ALERTA: no se detectó ninguna parte a anonimizar en un documento "
+            f"de {len(text)} caracteres. El archivo de salida no tendrá "
+            f"anonimización. Revisar manualmente: la carátula puede no estar "
+            f"al inicio del PDF, puede ser un fallo entre personas jurídicas, "
+            f"o el modelo de lenguaje no la detectó."
         )
         warnings.append(warning)
         logger.warning(warning)

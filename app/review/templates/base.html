@@ -2,40 +2,131 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>{% block title %}Revisión{% endblock %}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Revisión de anonimizaciones{% endblock %}</title>
 <style>
-  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #fafafa; color: #222; }
-  header { background: #1f2937; color: white; padding: 12px 20px; }
-  header a { color: #93c5fd; text-decoration: none; margin-right: 12px; }
-  header a:hover { text-decoration: underline; }
-  main { padding: 20px; max-width: 1600px; margin: 0 auto; }
-  table { border-collapse: collapse; width: 100%; background: white; }
-  th, td { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 13px; vertical-align: top; }
-  th { background: #f3f4f6; font-weight: 600; cursor: pointer; }
-  tr:hover td { background: #f9fafb; }
-  .pill { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-  .pill.pending { background: #e5e7eb; color: #374151; }
-  .pill.approved { background: #d1fae5; color: #065f46; }
-  .pill.rejected { background: #fee2e2; color: #991b1b; }
-  .pill.needs_fix { background: #fef3c7; color: #92400e; }
-  .pill.warning { background: #fed7aa; color: #9a3412; }
-  .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-  .filter-bar a { padding: 6px 12px; border-radius: 4px; background: white; border: 1px solid #d1d5db; color: #374151; text-decoration: none; font-size: 13px; }
-  .filter-bar a.active { background: #1f2937; color: white; border-color: #1f2937; }
-  .filter-bar a .count { opacity: .6; margin-left: 4px; }
-  .stem-link { color: #1d4ed8; text-decoration: none; font-weight: 500; }
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --border: #e4e7eb;
+    --text: #1f2937;
+    --text-soft: #6b7280;
+    --text-dim: #9ca3af;
+    --accent: #1d4ed8;
+    --accent-dark: #1e3a8a;
+    --ok: #059669;
+    --ok-soft: #d1fae5;
+    --warn: #b45309;
+    --warn-soft: #fef3c7;
+    --danger: #b91c1c;
+    --danger-soft: #fee2e2;
+    --info-soft: #dbeafe;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+         margin: 0; background: var(--bg); color: var(--text); line-height: 1.5; }
+  header { background: #0f172a; color: white; padding: 14px 24px; box-shadow: 0 1px 3px rgba(0,0,0,.08); display: flex; align-items: center; }
+  header a { color: #93c5fd; text-decoration: none; margin-right: 16px; font-weight: 500; }
+  header a:hover { color: #bfdbfe; text-decoration: underline; }
+  .doc-breadcrumb { color: #cbd5e1; font-size: 13px; margin-left: auto; }
+  main { padding: 24px; max-width: 1600px; margin: 0 auto; }
+
+  h2.folder-title { margin: 0 0 18px; font-size: 15px; color: var(--text-soft); font-weight: 500; word-break: break-all; }
+
+  /* Panel de ayuda */
+  .help-panel { background: var(--surface); border: 1px solid var(--border);
+                border-radius: 8px; margin-bottom: 20px; padding: 14px 18px; }
+  .help-panel summary { cursor: pointer; font-weight: 600; color: var(--text); }
+  .help-panel summary:hover { color: var(--accent); }
+  .help-panel .hint { color: var(--text-dim); font-weight: 400; font-size: 13px; margin-left: 6px; }
+  .help-body { margin-top: 12px; color: var(--text); font-size: 14px; }
+  .help-body ol { margin: 0; padding-left: 22px; }
+  .help-body li { margin-bottom: 8px; }
+  .help-body ul { margin: 6px 0; padding-left: 22px; }
+  .help-body code { background: #f3f4f6; padding: 1px 6px; border-radius: 3px; font-size: 12px; color: var(--text-soft); }
+
+  /* Filtros */
+  .filter-bar { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+  .filter-bar a { padding: 7px 14px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border);
+                  color: var(--text); text-decoration: none; font-size: 13px; font-weight: 500; transition: all .1s; }
+  .filter-bar a:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-bar a.active { background: var(--accent-dark); color: white; border-color: var(--accent-dark); }
+  .filter-bar a .count { display: inline-block; margin-left: 6px; padding: 1px 7px;
+                         border-radius: 10px; background: rgba(0,0,0,.08); font-size: 11px; font-weight: 600; }
+  .filter-bar a.active .count { background: rgba(255,255,255,.18); }
+  .filter-sep { width: 1px; height: 20px; background: var(--border); margin: 0 6px; }
+
+  /* Tabla */
+  table { border-collapse: collapse; width: 100%; background: var(--surface); border-radius: 8px; overflow: hidden;
+          box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  th, td { padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: left; font-size: 13px; vertical-align: top; }
+  th { background: #f9fafb; font-weight: 600; color: var(--text-soft); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbfc; }
+  .stem-link { color: var(--accent); text-decoration: none; font-weight: 500; }
   .stem-link:hover { text-decoration: underline; }
-  .pages { display: flex; flex-direction: column; gap: 24px; }
-  .page-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: white; padding: 16px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
-  .page-row h3 { margin: 0 0 8px; font-size: 13px; color: #6b7280; font-weight: 500; }
-  .page-row img { max-width: 100%; border: 1px solid #d1d5db; border-radius: 4px; display: block; }
-  .doc-toolbar { position: sticky; top: 0; background: white; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; margin: -20px -20px 20px; z-index: 100; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .doc-toolbar button { padding: 6px 12px; border: 1px solid #d1d5db; background: white; border-radius: 4px; cursor: pointer; font-size: 13px; }
-  .doc-toolbar button.primary { background: #10b981; color: white; border-color: #10b981; }
-  .doc-toolbar button.danger { background: #ef4444; color: white; border-color: #ef4444; }
-  .doc-toolbar button.warning { background: #f59e0b; color: white; border-color: #f59e0b; }
-  .meta { color: #6b7280; font-size: 12px; }
-  .warn-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin-bottom: 16px; border-radius: 4px; }
+  .meta { color: var(--text-soft); font-size: 12px; margin-top: 3px; }
+
+  /* Pills de estado */
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+          line-height: 1.4; white-space: nowrap; }
+  .pill.pending { background: #e5e7eb; color: #374151; }
+  .pill.approved { background: var(--ok-soft); color: var(--ok); }
+  .pill.rejected { background: var(--danger-soft); color: var(--danger); }
+  .pill.needs_fix { background: var(--warn-soft); color: var(--warn); }
+  .pill.warning { background: #fed7aa; color: #9a3412; }
+
+  /* Empty state */
+  .empty-state { background: var(--surface); border: 1px dashed var(--border); padding: 28px; text-align: center;
+                 border-radius: 8px; color: var(--text-soft); }
+  .empty-state .hint { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+
+  /* Vista de documento */
+  .doc-toolbar { position: sticky; top: 0; background: var(--surface); padding: 14px 20px;
+                 border-bottom: 1px solid var(--border); margin: -24px -24px 20px; z-index: 100;
+                 display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+                 box-shadow: 0 2px 4px rgba(0,0,0,.04); }
+  .toolbar-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .toolbar-info strong { font-size: 14px; }
+  .toolbar-actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .doc-toolbar button { padding: 8px 14px; border: 1px solid var(--border); background: var(--surface);
+                        border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;
+                        transition: all .1s; }
+  .doc-toolbar button:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,.08); }
+  .btn-approve { background: var(--ok) !important; color: white !important; border-color: var(--ok) !important; }
+  .btn-fix { background: #d97706 !important; color: white !important; border-color: #d97706 !important; }
+  .btn-reject { background: var(--danger) !important; color: white !important; border-color: var(--danger) !important; }
+
+  /* Caja de alerta */
+  .warn-box { background: var(--warn-soft); border-left: 4px solid #f59e0b; padding: 14px 16px;
+              margin-bottom: 18px; border-radius: 4px; font-size: 14px; }
+  .warn-box ul { margin: 6px 0 0; padding-left: 20px; }
+  .warn-box-red { background: var(--danger-soft); border-left-color: #ef4444; }
+  .warn-box code { background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+
+  /* Panel de partes */
+  .parties-panel { background: var(--surface); border: 1px solid var(--border);
+                   border-radius: 8px; padding: 14px 18px; margin-bottom: 18px; }
+  .parties-panel summary { cursor: pointer; font-weight: 600; }
+  .parties-panel summary:hover { color: var(--accent); }
+  .parties-table { margin-top: 12px; font-size: 13px; }
+  .parties-table code { background: #f3f4f6; padding: 2px 8px; border-radius: 3px; font-weight: 600; color: var(--accent-dark); }
+
+  /* Guía de páginas */
+  .pages-guide { color: var(--text-soft); font-size: 13px; margin-bottom: 12px;
+                 padding: 10px 14px; background: var(--info-soft); border-radius: 6px; }
+
+  /* Grilla de páginas */
+  .pages { display: flex; flex-direction: column; gap: 20px; }
+  .page-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+              background: var(--surface); padding: 16px; border-radius: 8px;
+              box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .page-row h3 { margin: 0 0 10px; font-size: 12px; color: var(--text-soft); font-weight: 600;
+                 text-transform: uppercase; letter-spacing: .04em; }
+  .page-row img { max-width: 100%; border: 1px solid var(--border); border-radius: 4px; display: block; }
+  .anon-missing { padding: 50px 20px; text-align: center; color: var(--text-dim);
+                  border: 1px dashed var(--border); border-radius: 4px;
+                  font-style: italic; font-size: 14px; }
 </style>
 </head>
 <body>
