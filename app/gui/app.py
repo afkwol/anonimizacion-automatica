@@ -390,11 +390,11 @@ class AnonimizadorApp(tk.Tk):
             else:
                 blockers = result.validation.blockers if result.validation else []
                 self.status_var.set(
-                    f"FALLÓ ✗  {len(blockers)} blockers. Ver pestaña Auditoría."
+                    f"Bloqueado por validacion: {len(blockers)} observaciones. Ver pestaña Auditoria."
                 )
                 messagebox.showerror(
-                    "Validación falló",
-                    "El pipeline detectó problemas. El archivo se guardó como "
+                    "Validacion bloqueada",
+                    "El pipeline detecto observaciones y bloqueo la salida final. El archivo se guardo como "
                     f"{result.output_path.name}. Revisá la pestaña Auditoría.",
                 )
 

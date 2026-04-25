@@ -19,6 +19,7 @@ los listados de roles.
 - [Qué hace el sistema](#qué-hace-el-sistema)
 - [Resultados sobre muestras reales](#resultados-sobre-muestras-reales)
 - [Instalación](#instalación)
+- [Demo](#demo)
 - [Uso rápido](#uso-rápido)
   - [CLI — archivo único](#cli--archivo-único)
   - [CLI — carpeta entera (modo lote)](#cli--carpeta-entera-modo-lote)
@@ -84,19 +85,22 @@ garantizan que el PDF final sea predecible y reproducible.
 
 ## Resultados sobre muestras reales
 
-Procesado sobre dos lotes de resoluciones reales (públicas) de los fueros
+Procesado sobre tres tandas de resoluciones reales (públicas) de los fueros
 civil/comercial, laboral y penal de la Provincia de Córdoba y Nación:
 
-| Lote | Documentos | Tasa limpia automática | Alertas (revisión humana) |
-|---|---|---|---|
-| Tanda 1 | 50 | 41/45 — 91 % | 1 |
-| Tanda 2 | 250 | 237/240 — 94,8 % | 10 |
+| Lote | Formato | Documentos | Anonimizados automáticamente | Revisión manual requerida |
+|---|---|---|---|---|
+| Tanda 1 | PDF | 50 | 44 | 6 |
+| Tanda 2 | PDF | 250 | 238 | 12 |
+| Tanda 3 | DOCX | 10 | 9 | 1 |
 
-- Tiempo promedio por documento: **2,8 – 4,4 segundos** utilizando un GPU Nvidia RTX 3090 
-  con el modelo Qwen3.5-9B.
-- Los casos con alerta son, en su gran mayoría, situaciones donde el documento
-  no tiene carátula al inicio (por ej. transcripciones parciales) o
-  controversias entre personas jurídicas (donde no hay nada que anonimizar).
+- Tiempo promedio por documento: **0,76 – 4,41 segundos** utilizando una
+  Nvidia RTX 3090 con el modelo Qwen3.5-9B.
+- La revisión manual requerida **no equivale a error técnico**. Es una señal
+  de resguardo del sistema: típicamente aparece cuando no se pudieron
+  individualizar partes procesales a anonimizar en un documento con texto
+  sustancial, o cuando el caso parece involucrar principalmente personas
+  jurídicas u organismos.
 
 ## Instalación
 
@@ -115,7 +119,20 @@ python -m venv .venv
 source .venv/bin/activate             # Linux/Mac
 .venv\Scripts\activate                # Windows
 
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+Para instalar también las herramientas de desarrollo y tests:
+
+```bash
+python -m pip install -e .[dev]
+```
+
+En Windows también podés usar:
+
+```bat
+setup_anonimizador.bat
 ```
 
 Configurar LM Studio:
@@ -123,6 +140,15 @@ Configurar LM Studio:
 1. Abrir LM Studio, ir a **Developer** → **Server**.
 2. Cargar un modelo (por ejemplo `qwen3.5-9b`).
 3. Click en **Start Server** (por defecto en `http://127.0.0.1:1234`).
+
+## Demo
+
+Podés ver una grabación breve del flujo desde GitHub en este archivo:
+
+- [Ver demo en video (MP4)](./demo.mp4)
+
+Si GitHub no lo reproduce embebido en la vista del README, al hacer clic lo
+abre en su visor de archivos y desde ahí se puede reproducir.
 
 ## Uso rápido
 
@@ -137,6 +163,19 @@ Genera al lado del archivo:
 - `<nombre>_anonimizado.pdf`
 - `<nombre>_audit.json` — lista de partes detectadas, reemplazos aplicados,
   tiempo por etapa, alertas.
+
+Para generar una salida más apta para publicación externa:
+
+```bash
+python -m app --lite --safe-publish --no-audit /ruta/al/documento.pdf
+```
+
+Ese modo:
+
+- usa un nombre de salida neutro (sin reutilizar el nombre original),
+- limpia metadatos del PDF,
+- ejecuta un post-check simple sobre el documento final,
+- y, si detecta una posible fuga, renombra la salida a `*_REVISAR_NO_PUBLICAR.pdf`.
 
 ### CLI — carpeta entera (modo lote)
 
@@ -284,11 +323,19 @@ societarias locales.
 ## Tests
 
 ```bash
-pytest -q --ignore=tests/test_segment_chunk.py
+python -m pytest -q
 ```
 
-142 tests, independientes del modelo LLM (cliente mockeado).
+La suite está pensada para ser independiente del modelo LLM en ejecución
+(cliente mockeado), aunque algunos tests requieren tener instaladas las
+dependencias opcionales de desarrollo con `pip install -e .[dev]`.
 
 ## Licencia
 
-MIT — ver [`LICENSE`](LICENSE).
+Este repositorio se distribuye bajo la licencia
+[`PolyForm Noncommercial 1.0.0`](LICENSE).
+
+Eso significa, en términos prácticos, que el código puede consultarse,
+estudiarse, ejecutarse y modificarse para fines no comerciales, pero **no**
+puede utilizarse comercialmente sin una autorización o licencia separada del
+titular del copyright.

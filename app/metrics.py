@@ -83,7 +83,7 @@ def detect_outliers(metrics: List[DocMetric], z_threshold: float = 2.0) -> List[
     out = []
     for m in metrics:
         if m.has_warnings:
-            out.append((m, "guardrail: 0 partes detectadas"))
+            out.append((m, "revision manual requerida: no fue posible identificar partes procesales"))
             continue
         if m.n_pages > 2 and m.replacements_per_kchar < mu - z_threshold * sigma:
             z = _z_score(m.replacements_per_kchar, mu, sigma)
@@ -158,7 +158,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     s = summary(metrics)
     print(f"\n=== Resumen métricas: {args.folder} ===")
     print(f"  Documentos:           {s['total']}")
-    print(f"  Con warnings:         {s['with_warnings']}")
+    print(f"  Revision manual:      {s['with_warnings']}")
     print(f"  Con 0 reemplazos:     {s['zero_replacements']}")
     print(f"  Modelos usados:       {', '.join(s['models'])}")
     print(f"  Reemplazos promedio:  {s['avg_replacements']} (mediana {s['median_replacements']})")

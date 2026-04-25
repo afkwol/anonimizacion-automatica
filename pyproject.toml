@@ -1,9 +1,13 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "anonimizador-judicial"
 version = "1.0.0"
 description = "Anonimizador determinista de resoluciones judiciales argentinas (PDF/DOCX) con LLM como detector y reemplazo preservando formato."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "PolyForm-Noncommercial-1.0.0"
 authors = [
     { name = "Francisco Aguirre" },
 ]
@@ -22,7 +26,6 @@ classifiers = [
     "Environment :: Console",
     "Environment :: Web Environment",
     "Intended Audience :: Legal Industry",
-    "License :: OSI Approved :: MIT License",
     "Natural Language :: Spanish",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.10",
@@ -58,6 +61,15 @@ dev = [
 
 [project.scripts]
 anonimizador = "app.__main__:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+"app.review" = ["templates/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

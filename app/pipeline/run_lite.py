@@ -41,6 +41,13 @@ from app.io.pdf_extract import PdfDocument, extract_pdf
 from app.replace.docx_replacer import write_anonymized_docx
 from app.replace.pdf_replacer import write_anonymized_pdf
 from app.replace.text_replacer import Replacement
+from app.pipeline.safe_output import (
+    build_review_hold_path,
+    build_public_output_path,
+    find_obvious_leaks,
+    public_document_id,
+    redact_public_audit,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +119,7 @@ class LiteConfig:
 
     llm_config: LMStudioConfig = field(default_factory=LMStudioConfig)
     dry_run: bool = False
+    safe_publish: bool = False
 
 
 @dataclass
@@ -188,16 +196,19 @@ def run_pipeline_lite(
 
     # ── 2b'. Guardrail: 0 partes en doc con texto sustancial ──────
     # Si después del LLM y la red de seguridad de carátula quedaron 0 partes
-    # pero el documento tiene texto significativo, marcar warning visible:
-    # el output podría salir SIN anonimizar y el operador no enterarse.
+    # pero el documento tiene texto significativo, dejar constancia expresa y
+    # requerir revisión manual. La idea es evitar que el operador interprete
+    # como "correctamente procesado" un caso que quedó sin anonimizar.
     warnings: List[str] = []
     if len(parties_llm) == 0 and len(text.strip()) > 500:
         warning = (
-            f"ALERTA: no se detectó ninguna parte a anonimizar en un documento "
-            f"de {len(text)} caracteres. El archivo de salida no tendrá "
-            f"anonimización. Revisar manualmente: la carátula puede no estar "
-            f"al inicio del PDF, puede ser un fallo entre personas jurídicas, "
-            f"o el modelo de lenguaje no la detectó."
+            f"REVISION MANUAL REQUERIDA: no fue posible identificar partes "
+            f"procesales a anonimizar en un documento con {len(text)} "
+            f"caracteres de texto extraído. En consecuencia, el sistema no "
+            f"genera salida anonimizada para este caso. Posibles causas: la "
+            f"carátula no aparece al inicio del texto extraído, el expediente "
+            f"corresponde principalmente a personas jurídicas u organismos, o "
+            f"la detección automática no logró individualizar las partes."
         )
         warnings.append(warning)
         logger.warning(warning)
@@ -285,13 +296,50 @@ def run_pipeline_lite(
     if not config.dry_run and replacements:
         t0 = time.time()
         if pdf_doc is not None:
-            output_path = input_path.with_name(input_path.stem + "_anonimizado.pdf")
-            write_anonymized_pdf(pdf_doc, replacements, output_path)
+            output_path = (
+                build_public_output_path(input_path)
+                if config.safe_publish
+                else input_path.with_name(input_path.stem + "_anonimizado.pdf")
+            )
+            write_anonymized_pdf(
+                pdf_doc,
+                replacements,
+                output_path,
+                scrub_metadata=config.safe_publish,
+            )
         else:
             assert docx_doc is not None
-            output_path = input_path.with_name(input_path.stem + "_anonimizado.docx")
+            output_path = (
+                build_public_output_path(input_path)
+                if config.safe_publish
+                else input_path.with_name(input_path.stem + "_anonimizado.docx")
+            )
             write_anonymized_docx(docx_doc, replacements, output_path)
         timings["write"] = time.time() - t0
+
+        if config.safe_publish and output_path is not None:
+            t0 = time.time()
+            if pdf_doc is not None:
+                output_doc = extract_pdf(output_path)
+                output_text = output_doc.full_text
+            else:
+                output_docx = extract_runs(output_path)
+                output_text = output_docx.full_text
+
+            leaked = find_obvious_leaks(text, replacements, output_text)
+            if leaked:
+                sample = ", ".join(repr(x) for x in leaked[:3])
+                warning = (
+                    "REVISION MANUAL REQUERIDA: el post-check del documento final "
+                    f"detectó posibles fugas de contenido anonimizable ({len(leaked)}). "
+                    f"Ejemplos: {sample}. No publicar sin revisión."
+                )
+                warnings.append(warning)
+                logger.warning(warning)
+                hold_path = build_review_hold_path(output_path)
+                output_path.replace(hold_path)
+                output_path = hold_path
+            timings["postcheck_safe_publish"] = time.time() - t0
 
     elapsed = time.time() - t_start
 
@@ -328,11 +376,17 @@ def run_pipeline_lite(
         ),
         "timings": {k: round(v, 3) for k, v in timings.items()},
     }
+    if config.safe_publish:
+        audit = redact_public_audit(
+            audit,
+            document_id=public_document_id(input_path),
+            output_name=output_path.name if output_path else None,
+        )
 
     return LiteResult(
         input_path=input_path,
         output_path=output_path,
-        success=success,
+        success=success and not warnings,
         parties_from_llm=[p for p in parties_llm if p["nombre"] not in caratula_names],
         parties_from_caratula=caratula_names,
         name_spans=all_name_spans,

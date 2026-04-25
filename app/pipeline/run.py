@@ -46,6 +46,13 @@ from app.detect.span import Span, resolve_overlaps
 from app.detect.structure import Zone, detect_zones
 from app.io.docx_extract import DocxDocument, extract_runs
 from app.io.pdf_extract import PdfDocument, extract_pdf
+from app.pipeline.safe_output import (
+    build_review_hold_path,
+    build_public_output_path,
+    find_obvious_leaks,
+    public_document_id,
+    redact_public_audit,
+)
 from app.replace.docx_replacer import write_anonymized_docx
 from app.replace.pdf_replacer import write_anonymized_pdf
 from app.replace.text_replacer import Replacement
@@ -77,6 +84,7 @@ class PipelineConfig:
     batch_size: int = 10
     max_retries: int = 2
     dry_run: bool = False  # si True, no escribe el archivo de salida
+    safe_publish: bool = False
 
 
 @dataclass
@@ -271,17 +279,50 @@ def run_pipeline(input_path: Path, config: Optional[PipelineConfig] = None) -> P
     if not config.dry_run:
         t0 = time.time()
         if pdf_doc is not None:
-            output_path = input_path.with_name(input_path.stem + "_anonimizado.pdf")
-            write_anonymized_pdf(pdf_doc, replacements, output_path)
+            output_path = (
+                build_public_output_path(input_path)
+                if config.safe_publish
+                else input_path.with_name(input_path.stem + "_anonimizado.pdf")
+            )
+            write_anonymized_pdf(
+                pdf_doc,
+                replacements,
+                output_path,
+                scrub_metadata=config.safe_publish,
+            )
             _stage(metrics, "write_pdf", len(replacements), t0)
         else:
             assert docx_doc is not None
-            output_path = input_path.with_name(input_path.stem + "_anonimizado.docx")
+            output_path = (
+                build_public_output_path(input_path)
+                if config.safe_publish
+                else input_path.with_name(input_path.stem + "_anonimizado.docx")
+            )
             write_anonymized_docx(docx_doc, replacements, output_path)
             _stage(metrics, "write_docx", len(replacements), t0)
 
-        # 11. Validate (solo DOCX por ahora — PDF redaction no permite
-        # re-extract trivial para validar regex leaks).
+        # 11. Validate
+        if config.safe_publish:
+            t0 = time.time()
+            if pdf_doc is not None:
+                output_doc = extract_pdf(output_path)
+                output_text = output_doc.full_text
+            else:
+                output_docx = extract_runs(output_path)
+                output_text = output_docx.full_text
+            leaked = find_obvious_leaks(text, replacements, output_text)
+            if leaked:
+                success = False
+                logger.error(
+                    "Post-check safe_publish detectó posibles fugas en output final: %s",
+                    leaked[:5],
+                )
+                hold_path = build_review_hold_path(output_path)
+                output_path.replace(hold_path)
+                output_path = hold_path
+            _stage(metrics, "postcheck_safe_publish", len(leaked), t0)
+
+        # 11b. Validate DOCX con post-check estructural
         if docx_doc is not None:
             t0 = time.time()
             validation = validate_docx_output(
@@ -329,6 +370,12 @@ def run_pipeline(input_path: Path, config: Optional[PipelineConfig] = None) -> P
             else None
         ),
     }
+    if config.safe_publish:
+        audit = redact_public_audit(
+            audit,
+            document_id=public_document_id(input_path),
+            output_name=output_path.name if output_path else None,
+        )
 
     return PipelineResult(
         input_path=input_path,

@@ -11,5 +11,11 @@ if not exist "%~dp0.venv\Scripts\activate.bat" (
 call "%~dp0.venv\Scripts\activate.bat"
 cd /d "%~dp0"
 python -m app --gui
+if errorlevel 1 (
+    echo.
+    echo [ERROR] La interfaz grafica termino con error.
+    pause
+    exit /b 1
+)
 
 endlocal

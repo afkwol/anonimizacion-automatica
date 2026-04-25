@@ -36,6 +36,8 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--gui", action="store_true", help="Lanzar la GUI Tkinter")
     p.add_argument("--lite", action="store_true", help="Modo liviano (civil/laboral)")
     p.add_argument("--dry-run", action="store_true", help="No escribir output")
+    p.add_argument("--safe-publish", action="store_true", help="Exporta salida con nombre neutro, metadata limpia y auditoria publica")
+    p.add_argument("--no-audit", action="store_true", help="No escribir archivo de auditoria")
     p.add_argument("--no-ner", action="store_true", help="Saltear NER (modo completo)")
     p.add_argument("--debug", action="store_true")
     p.add_argument("--audit", type=Path, default=None, help="Path del audit JSON")
@@ -100,12 +102,23 @@ def main(argv: list[str] | None = None) -> int:
 
         t_batch = time.time()
         n_ok = 0
-        n_fail = 0
+        n_review = 0
+        n_error = 0
         per_file: list[tuple[str, float, str]] = []  # (name, elapsed, status)
 
         for i, f in enumerate(files, 1):
             print(f"\n[{i}/{len(files)}] {f.name}")
-            audit_p = args.audit or f.with_name(f.stem + "_audit.json")
+            if args.no_audit:
+                audit_p = None
+            else:
+                if args.audit:
+                    audit_p = args.audit
+                else:
+                    if args.safe_publish:
+                        from app.pipeline.safe_output import build_public_audit_path
+                        audit_p = build_public_audit_path(f)
+                    else:
+                        audit_p = f.with_name(f.stem + "_audit.json")
             args.input = f
             t0 = time.time()
             status = "OK"
@@ -113,13 +126,17 @@ def main(argv: list[str] | None = None) -> int:
                 rc = _run_lite(args, llm_cfg, audit_p) if args.lite else _run_full(args, llm_cfg, audit_p)
                 if rc == 0:
                     n_ok += 1
+                    status = "ANONIMIZADO_OK"
+                elif rc == 2:
+                    n_review += 1
+                    status = f"REVISION_MANUAL(rc={rc})"
                 else:
-                    n_fail += 1
-                    status = f"FAIL(rc={rc})"
+                    n_error += 1
+                    status = f"ERROR_TECNICO(rc={rc})"
             except Exception as e:
                 print(f"  ERROR: {e}", file=sys.stderr)
-                n_fail += 1
-                status = f"ERROR({type(e).__name__}: {e})"
+                n_error += 1
+                status = f"ERROR_TECNICO({type(e).__name__}: {e})"
             per_file.append((f.name, time.time() - t0, status))
 
         total_elapsed = time.time() - t_batch
@@ -129,8 +146,9 @@ def main(argv: list[str] | None = None) -> int:
             f"Batch: {batch_dir}",
             f"Inicio:   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             f"Archivos: {len(files)}",
-            f"OK:       {n_ok}",
-            f"FAIL:     {n_fail}",
+            f"Anonimizados OK:           {n_ok}",
+            f"Revision manual requerida: {n_review}",
+            f"Errores tecnicos:          {n_error}",
             f"Tiempo total:      {total_elapsed:.2f} s",
             f"Promedio por doc:  {avg_elapsed:.2f} s",
             "",
@@ -140,11 +158,29 @@ def main(argv: list[str] | None = None) -> int:
             lines.append(f"  {elapsed:7.2f}s  {status:20s}  {name}")
         log_path.write_text("\n".join(lines), encoding="utf-8")
 
-        print(f"\n=== Batch OK: {n_ok}, FAIL: {n_fail} — {total_elapsed:.1f}s total, {avg_elapsed:.1f}s promedio ===")
+        print(
+            f"\n=== Batch: {n_ok} anonimizados OK, "
+            f"{n_review} con revision manual, "
+            f"{n_error} con error tecnico — "
+            f"{total_elapsed:.1f}s total, {avg_elapsed:.1f}s promedio ==="
+        )
         print(f"Log guardado en: {log_path}")
-        return 0 if n_fail == 0 else 1
+        if n_error:
+            return 1
+        if n_review:
+            return 2
+        return 0
 
-    audit_path = args.audit or args.input.with_name(args.input.stem + "_audit.json")
+    if args.no_audit:
+        audit_path = None
+    elif args.audit:
+        audit_path = args.audit
+    else:
+        if args.safe_publish:
+            from app.pipeline.safe_output import build_public_audit_path
+            audit_path = build_public_audit_path(args.input)
+        else:
+            audit_path = args.input.with_name(args.input.stem + "_audit.json")
 
     if args.lite:
         return _run_lite(args, llm_cfg, audit_path)
@@ -152,19 +188,28 @@ def main(argv: list[str] | None = None) -> int:
         return _run_full(args, llm_cfg, audit_path)
 
 
-def _run_lite(args: argparse.Namespace, llm_cfg: LMStudioConfig, audit_path: Path) -> int:
+def _run_lite(args: argparse.Namespace, llm_cfg: LMStudioConfig, audit_path: Path | None) -> int:
     """Ejecuta el pipeline liviano."""
     from app.pipeline.run_lite import LiteConfig, run_pipeline_lite, write_audit_log
 
-    config = LiteConfig(llm_config=llm_cfg, dry_run=args.dry_run)
+    config = LiteConfig(llm_config=llm_cfg, dry_run=args.dry_run, safe_publish=args.safe_publish)
     result = run_pipeline_lite(args.input, config)
-    write_audit_log(result, audit_path)
+    if audit_path is not None:
+        write_audit_log(result, audit_path)
+    warnings = result.audit.get("warnings", [])
+    if warnings:
+        state = "REVISION MANUAL REQUERIDA"
+    elif result.success:
+        state = "ANONIMIZACION COMPLETADA"
+    else:
+        state = "ERROR TECNICO"
 
-    print(f"\n=== Pipeline LITE {'OK' if result.success else 'FAILED'} ({result.elapsed_s:.1f}s) ===")
+    print(f"\n=== Pipeline LITE: {state} ({result.elapsed_s:.1f}s) ===")
     print(f"Input:  {result.input_path}")
     if result.output_path:
         print(f"Output: {result.output_path}")
-    print(f"Audit:  {audit_path}")
+    if audit_path is not None:
+        print(f"Audit:  {audit_path}")
     print(f"\nPartes detectadas:")
     for p in result.audit.get("parties", []):
         src = "carátula" if p.get("from_caratula") else "LLM"
@@ -172,16 +217,15 @@ def _run_lite(args: argparse.Namespace, llm_cfg: LMStudioConfig, audit_path: Pat
     print(f"\nOcurrencias: {len(result.name_spans)} nombres + {len(result.regex_spans)} regex → {len(result.replacements)} reemplazos")
     for k, v in result.audit.get("timings", {}).items():
         print(f"  {k:20s} {v*1000:8.1f} ms")
-    warnings = result.audit.get("warnings", [])
     if warnings:
         print()
         for w in warnings:
             print(f"  !! {w}", file=sys.stderr)
-        return 2  # exit code 2 = procesado con warning (output sin anonimizar)
+        return 2  # exit code 2 = revision manual requerida (sin salida anonimizada)
     return 0
 
 
-def _run_full(args: argparse.Namespace, llm_cfg: LMStudioConfig, audit_path: Path) -> int:
+def _run_full(args: argparse.Namespace, llm_cfg: LMStudioConfig, audit_path: Path | None) -> int:
     """Ejecuta el pipeline completo (NER + fichas + clasificación)."""
     from app.pipeline.run import PipelineConfig, run_pipeline, write_audit_log
 
@@ -190,16 +234,20 @@ def _run_full(args: argparse.Namespace, llm_cfg: LMStudioConfig, audit_path: Pat
         llm_config=llm_cfg,
         batch_size=args.batch_size,
         dry_run=args.dry_run,
+        safe_publish=args.safe_publish,
     )
 
     result = run_pipeline(args.input, config)
-    write_audit_log(result, audit_path)
+    if audit_path is not None:
+        write_audit_log(result, audit_path)
 
-    print(f"\n=== Pipeline {'OK' if result.success else 'FAILED'} ===")
+    state = "ANONIMIZACION COMPLETADA" if result.success else "BLOQUEADO POR VALIDACION"
+    print(f"\n=== Pipeline: {state} ===")
     print(f"Input:  {result.input_path}")
     if result.output_path:
         print(f"Output: {result.output_path}")
-    print(f"Audit:  {audit_path}")
+    if audit_path is not None:
+        print(f"Audit:  {audit_path}")
     print(f"Spans: {len(result.spans)} | Clusters: {len(result.coreference.clusters) if result.coreference else 0} | Reemplazos: {len(result.replacements)}")
     for m in result.metrics:
         print(f"  - {m.name:20s} {m.duration_s*1000:8.1f} ms  n={m.n_items}")
@@ -207,6 +255,8 @@ def _run_full(args: argparse.Namespace, llm_cfg: LMStudioConfig, audit_path: Pat
         print("\nBLOCKERS:")
         for issue in result.validation.blockers:
             print(f"  [{issue.code}] {issue.message}")
+        return 1
+    if not result.success:
         return 1
     return 0
 

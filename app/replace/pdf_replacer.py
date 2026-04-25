@@ -150,6 +150,8 @@ def write_anonymized_pdf(
     doc: PdfDocument,
     replacements: Sequence[Replacement],
     output_path: Path,
+    *,
+    scrub_metadata: bool = False,
 ) -> None:
     """Escribe un nuevo PDF con redacciones + placeholders rellenados."""
     output_path = Path(output_path)
@@ -252,6 +254,27 @@ def write_anonymized_pdf(
                 fontname=fontname,
                 color=(0, 0, 0),
             )
+
+    if scrub_metadata:
+        pdf.set_metadata(
+            {
+                "title": "",
+                "author": "",
+                "subject": "",
+                "keywords": "",
+                "creator": "",
+                "producer": "",
+                "creationDate": "",
+                "modDate": "",
+                "trapped": "",
+            }
+        )
+        try:
+            pdf.del_xml_metadata()
+        except Exception:
+            # Algunos PDFs no traen paquete XMP o PyMuPDF puede no soportarlo
+            # según la versión; no bloqueamos la exportación por eso.
+            pass
 
     pdf.save(str(output_path), garbage=3, deflate=True)
     pdf.close()
