@@ -1,3 +1,6 @@
+
+
+
 # Anonimizador de Resoluciones Judiciales
 
 Herramienta de anonimización automatizada de resoluciones judiciales argentinas
@@ -12,6 +15,8 @@ de Córdoba** y del **Poder Judicial de la Nación**, pero es **flexible**: las
 reglas de anonimización pueden adaptarse a otras jurisdicciones, fueros o
 incluso dominios no jurídicos modificando el *prompt* del modelo de lenguaje y
 los listados de roles.
+
+https://github.com/user-attachments/assets/15f26800-f515-4e62-9615-597d9449036d
 
 ## Tabla de contenidos
 
