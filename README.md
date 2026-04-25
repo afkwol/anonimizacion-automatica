@@ -146,16 +146,6 @@ Configurar LM Studio:
 2. Cargar un modelo (por ejemplo `qwen3.5-9b`).
 3. Click en **Start Server** (por defecto en `http://127.0.0.1:1234`).
 
-## Demo
-
-Podés ver una grabación breve del flujo desde GitHub haciendo clic en la
-miniatura:
-
-[![Demo del anonimizador](./docs/demo-thumb.png)](./demo-preview.mp4)
-
-En algunos renderizadores de GitHub el video no se embebe directamente dentro
-del README. Al hacer clic en la imagen, GitHub abre el archivo `demo-preview.mp4` en
-su visor y desde ahí se puede reproducir.
 
 ## Uso rápido
 
