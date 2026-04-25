@@ -1,7 +1,7 @@
 
 
 
-# Anonimizador de Resoluciones Judiciales
+# Anonimizador 2.0 - Anonimizador de Resoluciones Judiciales 
 
 Herramienta de anonimización automatizada de resoluciones judiciales argentinas
 (`.pdf`, `.docx`). Anonimiza nombres y apellidos de partes (personas físicas) o testigos,
