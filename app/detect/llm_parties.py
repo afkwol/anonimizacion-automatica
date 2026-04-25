@@ -175,6 +175,61 @@ def _is_company(name: str) -> bool:
     return False
 
 
+_DOUBLE_CONSONANT_RE = re.compile(r"([bcdfghjklmnpqrstvwxz])\1", re.IGNORECASE)
+
+
+def _collapse_doubles(s: str) -> str:
+    """Colapsa consonantes dobles (tt→t, ll→l, nn→n, etc.).
+
+    Útil para tolerar typos del LLM en apellidos italianos como
+    'Galletini' vs 'Gallettini', o errores comunes con ll/l, rr/r.
+    """
+    return _DOUBLE_CONSONANT_RE.sub(r"\1", s)
+
+
+def _correct_name_with_text(name: str, text_words: List[str]) -> Optional[str]:
+    """Si la grafía del LLM no aparece pero la forma sin dobles consonantes
+    coincide con una palabra del texto, devuelve la versión corregida.
+
+    Ej: LLM='GALLETTINI, EZEQUIEL EMILIANO', texto contiene 'Galletini'
+    → devuelve 'Galletini, EZEQUIEL EMILIANO'.
+    """
+    text_map: dict = {}
+    for tw in text_words:
+        if len(tw) < 3:
+            continue
+        key = _collapse_doubles(_remove_accents(tw.lower()))
+        text_map.setdefault(key, tw)
+
+    has_comma = "," in name
+    if has_comma:
+        apellido_str, resto_str = name.split(",", 1)
+        apellido_words = apellido_str.split()
+        resto_words = resto_str.split()
+        all_words = apellido_words + resto_words
+        n_apellido = len(apellido_words)
+    else:
+        all_words = name.split()
+        n_apellido = 0
+
+    corrected = []
+    found_correction = False
+    for w in all_words:
+        key = _collapse_doubles(_remove_accents(w.lower()))
+        if key in text_map and text_map[key].lower() != w.lower():
+            corrected.append(text_map[key])
+            found_correction = True
+        else:
+            corrected.append(w)
+
+    if not found_correction:
+        return None
+
+    if has_comma:
+        return " ".join(corrected[:n_apellido]) + ", " + " ".join(corrected[n_apellido:])
+    return " ".join(corrected)
+
+
 def _validate_against_text(
     parties: List[dict],
     text: str,
@@ -182,13 +237,16 @@ def _validate_against_text(
     """Descarta partes cuyo nombre no existe literalmente en el texto.
 
     También descarta personas jurídicas (S.A., S.R.L., etc.).
-    Busca con y sin acentos para tolerar PDFs con mala codificación.
+    Busca con y sin acentos para tolerar PDFs con mala codificación, y
+    como último recurso colapsa consonantes dobles para tolerar typos
+    del LLM (Gallettini → Galletini).
     """
     validated = []
     # Normalizar whitespace para tolerar saltos de línea en PDFs.
     text_norm = re.sub(r"\s+", " ", text)
     text_lower = text_norm.lower()
     text_no_acc = _remove_accents(text_lower)
+    text_words = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+", text_norm)
 
     for p in parties:
         name = p["nombre"]
@@ -230,6 +288,19 @@ def _validate_against_text(
                 break
         if found:
             validated.append(p)
+            continue
+
+        # Último recurso: corregir typo de consonantes dobles del LLM
+        # contra grafía real del texto.
+        corrected = _correct_name_with_text(name_norm, text_words)
+        if corrected and corrected != name_norm:
+            logger.info(
+                "Corrigiendo grafía LLM '%s' → '%s' (consonantes dobles)",
+                name, corrected,
+            )
+            p_corrected = dict(p)
+            p_corrected["nombre"] = corrected
+            validated.append(p_corrected)
             continue
 
         logger.info(
