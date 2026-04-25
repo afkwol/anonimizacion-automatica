@@ -143,12 +143,14 @@ Configurar LM Studio:
 
 ## Demo
 
-Podés ver una grabación breve del flujo desde GitHub en este archivo:
+Podés ver una grabación breve del flujo desde GitHub haciendo clic en la
+miniatura:
 
-- [Ver demo en video (MP4)](./demo.mp4)
+[![Demo del anonimizador](./docs/demo-thumb.png)](./demo.mp4)
 
-Si GitHub no lo reproduce embebido en la vista del README, al hacer clic lo
-abre en su visor de archivos y desde ahí se puede reproducir.
+En algunos renderizadores de GitHub el video no se embebe directamente dentro
+del README. Al hacer clic en la imagen, GitHub abre el archivo `demo.mp4` en
+su visor y desde ahí se puede reproducir.
 
 ## Uso rápido
 
