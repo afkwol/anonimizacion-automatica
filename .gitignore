@@ -50,3 +50,6 @@ batch_log_*.txt
 
 # Carpeta de trabajo de desarrollo (tandas de prueba, experimentación)
 laboratorio/
+
+# Notas/borradores del paper (no parte del código)
+artículo/

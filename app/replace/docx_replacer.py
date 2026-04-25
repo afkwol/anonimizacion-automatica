@@ -85,7 +85,9 @@ def _compute_run_edits(
         runs_by_part.setdefault(r.part, []).append(r)
 
     edits: Dict[Tuple[str, int], str] = {}
-    sorted_reps = sorted(replacements, key=lambda r: (r.start, r.end))
+    # Procesar en orden REVERSO de offset para que cada edit no desalinee los
+    # offsets de los siguientes (que se calculan contra `run.text` original).
+    sorted_reps = sorted(replacements, key=lambda r: (r.start, r.end), reverse=True)
 
     # Para cada replacement, encontrar runs intersectados.
     for rep in sorted_reps:

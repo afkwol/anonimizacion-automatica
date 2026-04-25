@@ -1,10 +1,11 @@
 # Anonimizador de Resoluciones Judiciales
 
 Herramienta de anonimización automatizada de resoluciones judiciales argentinas
-(`.pdf`, `.docx`). Preserva los roles **públicos** del proceso (jueces, fiscales,
+(`.pdf`, `.docx`). Anonimiza nombres y apellidos de partes (personas físicas) o testigos,
+preserva nombres de los roles **públicos** del proceso (jueces, fiscales,
 secretarios, letrados, autores citados) y anonimiza los **privados** (partes,
-testigos, víctimas, menores, causantes, herederos) dejando un PDF visualmente
-equivalente al original, con los nombres tachados e iniciales como reemplazo.
+testigos, víctimas, menores). Detecta y anonimiza identificadores: DNI, CUIT, 
+CBU, email, teléfono, patentes.
 
 El pipeline está optimizado y validado sobre resoluciones del **Poder Judicial
 de Córdoba** y del **Poder Judicial de la Nación**, pero es **flexible**: las
@@ -33,16 +34,17 @@ los listados de roles.
 
 ## Motivación
 
-Publicar jurisprudencia sin datos personales es una tarea cotidiana para
-abogados, editores jurídicos y relatores judiciales. Hoy se hace manualmente:
-leer el fallo, identificar a las partes y letrados, y tachar nombre por nombre
-en un editor de PDF. En un fallo de 30 páginas con tres herederos y dos testigos
-puede demorar media hora, con riesgo de saltarse una ocurrencia.
+Publicar jurisprudencia sin datos personales puede ser una tarea útil para
+abogados, editores jurídicos y funcionarios judiciales. Hoy se debe hacer manualmente:
+leer el fallo, identificar a las partes y/o datos sensibles, y tachar nombre por nombre
+o dato por dato en un editor de PDF. En un fallo de 30 páginas con tres actores y dos testigos
+puede demorar veinte minutos, con riesgo de saltarse una ocurrencia.
 
 Este proyecto automatiza ese flujo manteniendo el formato visual del PDF
 original (texto tachado en negro + marcador de iniciales ocupando el mismo
 ancho) y generando un archivo de auditoría que lista qué se anonimizó y por
-qué — indispensable para poder revisar y auditar el resultado.
+qué — indispensable para poder revisar y auditar el resultado. También puede procesar archivos
+.docx
 
 ## Qué hace el sistema
 
@@ -51,10 +53,10 @@ Dado un PDF o DOCX de entrada, el sistema:
 1. **Extrae el texto** con preservación de posiciones (coordenadas de cada span
    en el PDF original).
 2. **Detecta partes a anonimizar** mediante un modelo de lenguaje local
-   (LM Studio, por ejemplo `qwen2.5-9b-instruct`) al que se le envía el texto
+   (LM Studio, por ejemplo `qwen3.5-9b`) al que se le envía el texto
    completo y un *prompt* que define qué roles incluir/excluir.
-3. **Red de seguridad por carátula**: un detector basado en expresiones
-   regulares busca el patrón `APELLIDO, NOMBRE c/ DEMANDADO` en la cabecera
+3. **Detección por carátula**: un detector basado en "expresiones
+   regulares" busca el patrón `APELLIDO, NOMBRE c/ DEMANDADO` en la cabecera
    del documento. Si el modelo no detectó al actor, lo agrega.
 4. **Valida contra el texto**: cada nombre devuelto por el modelo se busca
    literalmente en el documento. Los que no aparecen se descartan
@@ -73,8 +75,8 @@ Dado un PDF o DOCX de entrada, el sistema:
 8. **Escribe un archivo `_audit.json`** con cada parte detectada, su placeholder,
    origen (carátula o modelo) y métricas del procesamiento.
 9. **Emite una alerta visible** si el documento tiene texto sustancial pero
-   no se detectó ninguna parte — evita entregar un PDF sin anonimizar sin
-   que nadie se entere.
+   no se detectó ninguna parte, para evitar entregar un PDF sin anonimizar "sin
+   que nadie se entere", para que un humano lo "revise" manualmente de manera posterior.
 
 El **modelo de lenguaje no reescribe texto**: sólo devuelve un JSON con los
 nombres a anonimizar. La validación fail-closed y la sustitución determinística
@@ -90,15 +92,11 @@ civil/comercial, laboral y penal de la Provincia de Córdoba y Nación:
 | Tanda 1 | 50 | 41/45 — 91 % | 1 |
 | Tanda 2 | 250 | 237/240 — 94,8 % | 10 |
 
-- Tiempo promedio por documento: **2,8 – 4,4 segundos** (sobre CPU de desktop,
-  depende del tamaño del modelo LLM cargado).
+- Tiempo promedio por documento: **2,8 – 4,4 segundos** utilizando un GPU Nvidia RTX 3090 
+  con el modelo Qwen3.5-9B.
 - Los casos con alerta son, en su gran mayoría, situaciones donde el documento
   no tiene carátula al inicio (por ej. transcripciones parciales) o
-  controversias entre personas jurídicas donde no hay nada que anonimizar.
-- Los residuales (4 en la tanda 1) corresponden a *typos* del documento
-  original (OCR imperfecto) o a personas citadas de pasada por el juez que el
-  modelo no identificó como parte — casos donde la asistencia humana es
-  indispensable.
+  controversias entre personas jurídicas (donde no hay nada que anonimizar).
 
 ## Instalación
 
@@ -106,7 +104,7 @@ Requisitos:
 
 - Python 3.10 o superior
 - [LM Studio](https://lmstudio.ai/) corriendo localmente, con un modelo de
-  instrucciones cargado (recomendado: `qwen2.5-7b-instruct` o superior)
+  instrucciones cargado (recomendado: `qwen3.5-9b`)
 - Git
 
 ```bash
@@ -123,7 +121,7 @@ pip install -r requirements.txt
 Configurar LM Studio:
 
 1. Abrir LM Studio, ir a **Developer** → **Server**.
-2. Cargar un modelo (por ejemplo `qwen2.5-7b-instruct-Q4_K_M`).
+2. Cargar un modelo (por ejemplo `qwen3.5-9b`).
 3. Click en **Start Server** (por defecto en `http://127.0.0.1:1234`).
 
 ## Uso rápido

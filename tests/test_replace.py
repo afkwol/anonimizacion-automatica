@@ -13,7 +13,7 @@ from app.replace.docx_replacer import (
 from app.replace.text_replacer import Replacement, apply_replacements
 
 
-FIXTURES = Path(__file__).resolve().parent.parent / "ejemplos"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 DOCX_FILES = sorted(p for p in FIXTURES.glob("*.docx") if not p.name.startswith("~$"))
 
 

@@ -14,7 +14,7 @@ def _normalize(text: str) -> str:
 
 from app.io.docx_extract import count_coverage, extract_runs
 
-FIXTURES = Path(__file__).resolve().parent.parent / "ejemplos"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 DOCX_FILES = sorted(p for p in FIXTURES.glob("*.docx") if not p.name.startswith("~$"))
 
 

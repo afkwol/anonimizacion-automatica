@@ -1,7 +1,36 @@
 [project]
-name = "anonimizador"
-version = "0.1.0-dev"
-description = "Anonimizador de documentos judiciales con detección role-aware y LLM clasificador"
+name = "anonimizador-judicial"
+version = "1.0.0"
+description = "Anonimizador determinista de resoluciones judiciales argentinas (PDF/DOCX) con LLM como detector y reemplazo preservando formato."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Francisco Aguirre" },
+]
+keywords = [
+    "anonimización",
+    "anonymization",
+    "legal-tech",
+    "argentina",
+    "jurisprudencia",
+    "pdf",
+    "docx",
+    "llm",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: Legal Industry",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: Spanish",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business",
+    "Topic :: Text Processing :: Linguistic",
+]
 requires-python = ">=3.10"
 dependencies = [
     # I/O documentos
@@ -14,6 +43,8 @@ dependencies = [
     "PyYAML>=6.0.1",
     "requests>=2.31.0",
     "pydantic>=2.6.0",
+    # Dashboard de revisión
+    "flask>=3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +55,9 @@ dev = [
     "pytest>=8.0.0",
     "ruff>=0.4.0",
 ]
+
+[project.scripts]
+anonimizador = "app.__main__:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
