@@ -33,6 +33,7 @@ https://github.com/user-attachments/assets/15f26800-f515-4e62-9615-597d9449036d
   - [Interfaz gráfica (Tkinter)](#interfaz-gráfica-tkinter)
 - [Ejemplos incluidos](#ejemplos-incluidos)
 - [Flexibilidad: adaptar a otras jurisdicciones](#flexibilidad-adaptar-a-otras-jurisdicciones)
+- [Criterio de anonimización y adaptabilidad normativa](#criterio-de-anonimización-y-adaptabilidad-normativa)
 - [Garantías de diseño](#garantías-de-diseño)
 - [Limitaciones conocidas](#limitaciones-conocidas)
 - [Tests](#tests)
@@ -87,6 +88,9 @@ Dado un PDF o DOCX de entrada, el sistema:
 El **modelo de lenguaje no reescribe texto**: sólo devuelve un JSON con los
 nombres a anonimizar. La validación fail-closed y la sustitución determinística
 garantizan que el PDF final sea predecible y reproducible.
+En otras palabras: el análisis semántico se realiza sobre **texto extraído o
+texto plano**, pero la salida final se aplica sobre **PDF o DOCX**, que son los
+formatos reales de trabajo y publicación judicial.
 
 ## Resultados sobre muestras reales
 
@@ -269,6 +273,65 @@ Los filtros de persona jurídica
 ([`_COMPANY_SUFFIXES_FILTER`](app/detect/llm_parties.py)) también son
 editables — por ejemplo para incluir "Fundación", "ONG" u otras formas
 societarias locales.
+
+## Criterio de anonimización y adaptabilidad normativa
+
+Por defecto, Anonimizador 2.0:
+
+- anonimiza principalmente **personas físicas privadas** relevantes para el
+  proceso (partes, testigos, víctimas, menores, causantes, herederos y roles
+  análogos según el caso);
+- preserva por defecto los **roles públicos o institucionales** del proceso
+  (jueces, fiscales, secretarios, letrados, peritos oficiales, autores
+  citados);
+- anonimiza **identificadores sensibles** como DNI, CUIT, CBU, email,
+  teléfono y patente;
+- deriva a **revisión humana** los casos en los que no logra individualizar
+  partes con base operativa suficiente.
+
+Este criterio no pretende ser una política universal de publicación judicial.
+La herramienta está pensada para ser **compatible** con estrategias de
+publicación con resguardos y, sobre todo, para **poder ser adaptada** a otros
+lineamientos jurisdiccionales o editoriales.
+
+En términos generales:
+
+- **Reglas de Heredia (Regla 5)**: el sistema es consistente con una lógica de
+  supresión, anonimización o inicialización de personas protegidas e
+  identificadores sensibles.
+- **CSJN 15/2013 y 24/2013**: el sistema es compatible con la idea de publicar
+  con resguardos legales y producir una copia apta para difusión, preservando
+  trazabilidad y revisión posterior.
+- **TSJ Córdoba, AR 1850/2024**: el sistema no reproduce automáticamente ese
+  criterio específico, pero **puede ser adaptado** para aproximarse a él.
+
+La adaptación puede hacerse sin rediseñar toda la arquitectura, modificando
+estas capas:
+
+- **prompt del LLM**: para incluir o excluir roles y sujetos a anonimizar;
+- **listas de roles preservados / roles anonimizar**: según fuero o
+  jurisdicción;
+- **placeholders / inicialización**: por ejemplo, iniciales completas, nombre
+  de pila + apellido inicializado, u otras variantes;
+- **regex y detectores estructurales**: para capturar otros identificadores o
+  patrones documentales;
+- **validaciones y revisión reforzada**: para endurecer criterios en causas o
+  expedientes sensibles.
+
+Ejemplo: para adecuarse al criterio del **TSJ Córdoba (AR 1850/2024)** habría
+que distinguir, al menos, entre:
+
+- **NNyA** -> iniciales;
+- **familiares de NNyA** -> nombre de pila + apellido inicializado.
+
+Eso requeriría ajustar el prompt, la clasificación de roles y la lógica de
+placeholders según la categoría de persona involucrada.
+
+Importante: la herramienta **no modifica el contenido del fallo para cumplir
+la Regla 9 de Heredia**. Esa regla corresponde primariamente al tribunal o a
+quien redacta la resolución. Anonimizador 2.0 no reescribe hechos, contexto ni
+fundamentos para “corregir” la sentencia; anonimiza nombres e identificadores
+detectables y deja trazas para revisión posterior.
 
 ## Garantías de diseño
 
