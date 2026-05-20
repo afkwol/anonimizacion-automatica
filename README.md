@@ -1,7 +1,7 @@
 
 
 
-# Anonimizador 2.0 - Anonimizador de Resoluciones Judiciales 
+# Anonimizador Automático de Resoluciones Judiciales 
 
 Herramienta de anonimización automatizada de resoluciones judiciales argentinas
 (`.pdf`, `.docx`). Anonimiza nombres y apellidos de partes (personas físicas) o testigos,
@@ -121,14 +121,13 @@ Requisitos:
 - Git
 
 ```bash
-git clone <url-del-repo> anonimizador
+gh repo clone afkwol/anonimizacion-automatica
 cd anonimizador
 
 python -m venv .venv
 source .venv/bin/activate             # Linux/Mac
 .venv\Scripts\activate                # Windows
 
-python -m pip install --upgrade pip
 python -m pip install -e .
 ```
 
@@ -287,11 +286,11 @@ Por defecto, Anonimizador 2.0:
 - anonimiza **identificadores sensibles** como DNI, CUIT, CBU, email,
   teléfono y patente;
 - deriva a **revisión humana** los casos en los que no logra individualizar
-  partes con base operativa suficiente.
+  partes.
 
-Este criterio no pretende ser una política universal de publicación judicial.
+Este criterio no es una "política universal" de publicación judicial.
 La herramienta está pensada para ser **compatible** con estrategias de
-publicación con resguardos y, sobre todo, para **poder ser adaptada** a otros
+publicación definidas según la necesidad del usuario y, sobre todo, para **poder ser adaptada** a otros
 lineamientos jurisdiccionales o editoriales.
 
 En términos generales:
@@ -327,11 +326,6 @@ que distinguir, al menos, entre:
 Eso requeriría ajustar el prompt, la clasificación de roles y la lógica de
 placeholders según la categoría de persona involucrada.
 
-Importante: la herramienta **no modifica el contenido del fallo para cumplir
-la Regla 9 de Heredia**. Esa regla corresponde primariamente al tribunal o a
-quien redacta la resolución. Anonimizador 2.0 no reescribe hechos, contexto ni
-fundamentos para “corregir” la sentencia; anonimiza nombres e identificadores
-detectables y deja trazas para revisión posterior.
 
 ## Garantías de diseño
 
@@ -357,12 +351,10 @@ detectables y deja trazas para revisión posterior.
 - **Dependencia del modelo de lenguaje local**. La calidad del detector
   depende del modelo cargado en LM Studio. Modelos muy pequeños (< 3 B
   parámetros) pierden recall. Modelos *reasoning* (qwen3-r1, deepseek-r1)
-  gastan tokens en el razonamiento interno; si se usan, subir `max_tokens`
-  a 16 384 o más.
+  gastan tokens en el razonamiento interno.
 
 - **Documentos escaneados sin OCR**. El sistema extrae texto con PyMuPDF; si
-  el PDF es imagen pura (fotocopia sin capa de texto) no detecta nada. Usar
-  OCR previo (Adobe Acrobat, Tesseract) antes de procesar.
+  el PDF es imagen pura (fotocopia sin capa de texto) no detecta nada.
 
 - **Carátulas truncadas o atípicas**. Si el PDF no empieza con la forma
   `APELLIDO, NOMBRE c/ ...` y el modelo tampoco detecta a las partes,
