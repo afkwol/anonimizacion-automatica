@@ -44,7 +44,7 @@ https://github.com/user-attachments/assets/15f26800-f515-4e62-9615-597d9449036d
 Publicar jurisprudencia sin datos personales puede ser una tarea útil para
 abogados, editores jurídicos y funcionarios judiciales. Hoy se debe hacer manualmente:
 leer el fallo, identificar a las partes y/o datos sensibles, y tachar nombre por nombre
-o dato por dato en un editor de PDF. En un fallo de 30 páginas con tres actores y dos testigos
+o dato por dato en un editor Word o PDF. En un fallo de 30 páginas con tres actores y dos testigos
 puede demorar veinte minutos, con riesgo de saltarse una ocurrencia.
 
 Este proyecto automatiza ese flujo manteniendo el formato visual del PDF
